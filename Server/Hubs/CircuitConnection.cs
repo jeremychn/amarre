@@ -140,7 +140,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
               command,
               string.Join(", ", deviceIDs));
 
-        var authTokenForUploadingResults = _expiringTokenService.GetToken(Time.Now.AddMinutes(5));
+        var authTokenForUploadingResults = _expiringTokenService.GetToken(Time.Now.AddMinutes(5), User.OrganizationID);
 
         await _agentHubContext.Clients.Clients(connections).ExecuteCommand(
             shell,
@@ -328,9 +328,21 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             deviceIds = _dataService.FilterDeviceIdsByUserPermission(deviceIds.ToArray(), User);
         }
 
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes));
+        // Planification comprise (sans utilisateur) : le script et les postes doivent être de la même organisation.
+        var scriptResult = await _dataService.GetSavedScript(savedScriptId);
+        if (!scriptResult.IsSuccess)
+        {
+            return;
+        }
+        var orgId = scriptResult.Value.OrganizationID;
 
-        var connectionIds = _agentSessionCache.GetConnectionIdsByDeviceIds(deviceIds).ToArray();
+        var orgDeviceIds = deviceIds.Where(id =>
+            _agentSessionCache.TryGetByDeviceId(id, out var device) &&
+            device.OrganizationID == orgId);
+
+        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes), orgId);
+
+        var connectionIds = _agentSessionCache.GetConnectionIdsByDeviceIds(orgDeviceIds).ToArray();
 
         if (connectionIds.Any())
         {
@@ -396,7 +408,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return false;
         }
 
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(5));
+        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(5), User.OrganizationID);
 
         await _agentHubContext.Clients
             .Client(connectionId)

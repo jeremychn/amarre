@@ -44,6 +44,11 @@ public class OrganizationManagementController : ControllerBase
             return true;
         }
 
+        return await CallerIsServerAdmin();
+    }
+
+    private async Task<bool> CallerIsServerAdmin()
+    {
         if (User.Identity?.IsAuthenticated != true)
         {
             return false;
@@ -298,6 +303,12 @@ public class OrganizationManagementController : ControllerBase
         if (!Request.Headers.TryGetOrganizationId(out var orgId))
         {
             return Unauthorized();
+        }
+
+        // Réglage du serveur entier : réservé aux administrateurs du serveur, comme dans l'interface.
+        if (!await CallerIsServerAdmin())
+        {
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
         await _dataService.SetIsDefaultOrganization(orgId, isDefault);

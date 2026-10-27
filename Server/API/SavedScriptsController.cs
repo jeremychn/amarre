@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Remotely.Server.Auth;
+using Remotely.Server.Extensions;
 using Remotely.Server.Services;
 using Remotely.Shared.Entities;
 
@@ -21,7 +22,9 @@ public class SavedScriptsController : ControllerBase
     public async Task<ActionResult<SavedScript>> GetScript(Guid scriptId)
     {
         var result =  await _dataService.GetSavedScript(scriptId);
-        if (!result.IsSuccess)
+        if (!result.IsSuccess ||
+            !Request.Headers.TryGetOrganizationId(out var orgId) ||
+            result.Value.OrganizationID != orgId)
         {
             return NotFound();
         }

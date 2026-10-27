@@ -60,6 +60,13 @@ public class ScriptResultsController : ControllerBase
     [ServiceFilter(typeof(ExpiringTokenFilter))]
     public async Task<ActionResult<ScriptResultResponse>> Post([FromBody] ScriptResultDto result)
     {
+        // Le jeton ne vaut que pour son organisation : pas de résultat pour un poste d'une autre.
+        if (!Request.Headers.TryGetOrganizationId(out var orgId) ||
+            !(await _dataService.GetDevice(orgId, result.DeviceID)).IsSuccess)
+        {
+            return NotFound();
+        }
+
         var scriptResult = await _dataService.AddScriptResult(result);
 
         if (!scriptResult.IsSuccess)

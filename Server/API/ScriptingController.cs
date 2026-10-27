@@ -91,7 +91,7 @@ public class ScriptingController : ControllerBase
         }
 
         var requestID = Guid.NewGuid().ToString();
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes));
+        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes), orgId);
 
         // TODO: Replace with new invoke capability in .NET 7.
         await _agentHubContext.Clients.Client(connectionId).ExecuteCommandFromApi(

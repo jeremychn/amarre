@@ -36,7 +36,6 @@ public interface IDataService
 
     Task<string> AddSharedFile(IBrowserFile file, string organizationId, Action<double, string> progressCallback);
 
-    Task<string> AddSharedFile(IFormFile file, string organizationId);
 
     bool AddUserToDeviceGroup(string orgId, string groupId, string userName, out string resultMessage);
 
@@ -560,15 +559,6 @@ public class DataService : IDataService
         }
 
         progressCallback.Invoke(1, fileName);
-
-        return await AddSharedFileImpl(file.Name, fileContents, file.ContentType, organizationId);
-    }
-
-    public async Task<string> AddSharedFile(IFormFile file, string organizationId)
-    {
-        var fileContents = new byte[file.Length];
-        using var stream = file.OpenReadStream();
-        await stream.ReadExactlyAsync(fileContents);
 
         return await AddSharedFileImpl(file.Name, fileContents, file.ContentType, organizationId);
     }

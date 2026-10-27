@@ -28,6 +28,7 @@ public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while authorizing API key.");
+            context.Result = new UnauthorizedResult();
         }
     }
 

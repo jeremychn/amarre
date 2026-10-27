@@ -32,6 +32,7 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while authorizing expiring token.");
+            context.Result = new UnauthorizedResult();
         }
     }
 
@@ -88,10 +89,12 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
 
         if (http.Request.Headers.TryGetValue(AppConstants.ExpiringTokenHeaderName, out var expiringToken))
         {
-            if (_expiringTokenService.TryGetExpiration(expiringToken.ToString(), out var expiration) &&
-                expiration > Time.Now)
+            if (_expiringTokenService.TryGetToken(expiringToken.ToString(), out var expiration, out var tokenOrgId) &&
+                expiration > Time.Now &&
+                !string.IsNullOrWhiteSpace(tokenOrgId))
             {
-                _logger.LogDebug("Expiring token authorized.  Token: {token}.  Expiration: {expiration}", expiringToken, expiration);
+                _logger.LogDebug("Expiring token authorized.  Expiration: {expiration}", expiration);
+                http.Request.Headers["OrganizationID"] = tokenOrgId;
                 return;
             }
         }

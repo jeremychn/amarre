@@ -117,6 +117,11 @@ public class ClientDownloadsController : ControllerBase
     [HttpGet("{platformId}/{organizationId}")]
     public async Task<IActionResult> GetInstaller(string platformId, string organizationId)
     {
+        // L'ID est recopié dans le script d'installation : seul l'ID d'une organisation existante passe.
+        if (!(await _dataService.GetOrganizationNameById(organizationId)).IsSuccess)
+        {
+            return NotFound();
+        }
         return await GetInstallFile(organizationId, platformId);
     }
 

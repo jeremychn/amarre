@@ -6,6 +6,7 @@ using Remotely.Agent.Extensions;
 using Remotely.Agent.Interfaces;
 using Remotely.Shared;
 using Remotely.Shared.Enums;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Interfaces;
 using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
@@ -118,6 +119,7 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
 
                 _logger.LogInformation("Attempting to connect to server.");
 
+                _isServerVerified = false;
                 _connectionInfo = _configService.GetConnectionInfo();
                 CheckHardwareId(_connectionInfo);
 
@@ -153,7 +155,7 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
                 _logger.LogInformation("Connected to server.");
 
                 var device = await _deviceInfoService.CreateDevice(_connectionInfo.DeviceID, _connectionInfo.OrganizationID);
-                device.ServerVerificationToken = _connectionInfo.ServerVerificationToken ?? string.Empty;
+                device.ServerVerificationToken = await GetAgentProof();
 
                 var result = await _hubConnection.InvokeAsync<bool>("DeviceCameOnline", device);
 
@@ -198,6 +200,12 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
     {
         try
         {
+            if (!_isServerVerified)
+            {
+                _logger.LogWarning("Log deletion attempted before server was verified.");
+                return;
+            }
+
             await _fileLogsManager.DeleteLogs(_appLifetime.ApplicationStopping);
         }
         catch (Exception ex)
@@ -277,6 +285,12 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         {
             EnsureHubConnection();
 
+            if (!_isServerVerified)
+            {
+                _logger.LogWarning("Log retrieval attempted before server was verified.");
+                return;
+            }
+
             if (!await _fileLogsManager.AnyLogsExist(_appLifetime.ApplicationStopping))
             {
                 var message = "There are no log entries written.";
@@ -301,6 +315,13 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         try
         {
             EnsureHubConnection();
+
+            if (!_isServerVerified)
+            {
+                _logger.LogWarning("PowerShell completions requested before server was verified.");
+                return;
+            }
+
             var session = _scriptingShellFactory.GetOrCreatePsCoreShell(senderConnectionId);
             var completion = session.GetCompletions(inputText, currentIndex, forward);
             var completionModel = completion.ToPwshCompletion();
@@ -342,6 +363,13 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
     {
         try
         {
+            // Télécharge et lance un installeur : jamais sur ordre d'un serveur non vérifié.
+            if (!_isServerVerified)
+            {
+                _logger.LogWarning("Agent reinstall attempted before server was verified.");
+                return;
+            }
+
             await _updater.InstallLatestVersion();
         }
         catch (Exception ex)
@@ -514,6 +542,7 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
 
     public Task TriggerHeartbeat() => SendHeartbeat();
 
+    // Pas de contrôle de vérification : le serveur l'envoie aux postes bannis avant de refuser leur connexion.
     public Task UninstallAgent()
     {
         try
@@ -585,12 +614,14 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         }
 
         _logger.LogInformation("Reconnected to server.");
+        _isServerVerified = false;
 
         // Nouvelle connexion côté serveur : s'enregistrer d'abord, la vérification de mise à jour peut être longue.
         var device = await _deviceInfoService.CreateDevice(_connectionInfo.DeviceID, $"{_connectionInfo.OrganizationID}");
-        device.ServerVerificationToken = _connectionInfo.ServerVerificationToken ?? string.Empty;
+        device.ServerVerificationToken = await GetAgentProof();
 
-        if (!await _hubConnection.InvokeAsync<bool>("DeviceCameOnline", device))
+        if (!await _hubConnection.InvokeAsync<bool>("DeviceCameOnline", device) ||
+            !await VerifyServer())
         {
             await Connect();
             return;
@@ -707,20 +738,36 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         }
         else
         {
-            var verificationToken = await _hubConnection.InvokeAsync<string>("GetServerVerificationToken");
+            var agentChallenge = AgentTokenProof.NewChallenge();
+            var serverProof = await _hubConnection.InvokeAsync<string>("ProveServer", agentChallenge);
 
-            if (verificationToken == _connectionInfo.ServerVerificationToken)
+            if (AgentTokenProof.AreEqual(AgentTokenProof.FromServer(_connectionInfo.ServerVerificationToken, agentChallenge), serverProof))
             {
                 _isServerVerified = true;
             }
             else
             {
-                _logger.LogWarning("Server sent an incorrect verification token.  Token Sent: {verificationToken}.", verificationToken);
+                _logger.LogWarning(
+                    "Le serveur ne connaît pas le jeton de ce poste : connexion refusée. " +
+                    "Faux serveur, ou appareil supprimé côté serveur (réinstaller l'agent ou effacer ServerVerificationToken dans ConnectionInfo.json).");
                 return false;
             }
         }
 
         return true;
+    }
+
+    // Le jeton ne quitte jamais le poste : l'agent signe le défi de cette connexion (rien à envoyer avant l'enrôlement).
+    private async Task<string> GetAgentProof()
+    {
+        if (_connectionInfo is null || _hubConnection is null ||
+            string.IsNullOrWhiteSpace(_connectionInfo.ServerVerificationToken))
+        {
+            return string.Empty;
+        }
+
+        var serverChallenge = await _hubConnection.InvokeAsync<string>("GetAgentChallenge");
+        return AgentTokenProof.FromAgent(_connectionInfo.ServerVerificationToken, serverChallenge);
     }
 
     private class RetryPolicy : IRetryPolicy

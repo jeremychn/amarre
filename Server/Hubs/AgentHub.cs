@@ -7,11 +7,10 @@ using Remotely.Shared;
 using Remotely.Shared.Dtos;
 using Remotely.Shared.Entities;
 using Remotely.Shared.Enums;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Interfaces;
 using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace Remotely.Server.Hubs;
 
@@ -45,6 +44,8 @@ public class AgentHub : Hub<IAgentHubClient>
         _messenger = messenger;
         _logger = logger;
     }
+
+    private const string AgentChallengeKey = "AgentChallenge";
 
     // TODO: Replace with new invoke capability in .NET 7 in ScriptingController.
     public static IMemoryCache ApiScriptResults { get; } = new MemoryCache(new MemoryCacheOptions());
@@ -130,7 +131,7 @@ public class AgentHub : Hub<IAgentHubClient>
             return;
         }
 
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes));
+        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes), Device.OrganizationID);
         var scriptRuns = await _dataService.GetPendingScriptRuns(Device.ID);
 
         foreach (var run in scriptRuns)
@@ -200,12 +201,8 @@ public class AgentHub : Hub<IAgentHubClient>
             Device = result.Value;
             Device.HardwareId = device.HardwareId;
 
-            // Appareil supprimé puis recréé : l'agent garde son jeton, on le reprend (sinon il refuse le serveur en boucle).
-            if (string.IsNullOrEmpty(Device.ServerVerificationToken) && !string.IsNullOrEmpty(device.ServerVerificationToken))
-            {
-                Device.ServerVerificationToken = device.ServerVerificationToken;
-                _dataService.SetServerVerificationToken(Device.ID, device.ServerVerificationToken);
-            }
+            // Appareil supprimé puis recréé alors que l'agent garde son jeton : le serveur ne peut plus le reprendre
+            // (l'agent n'envoie qu'une preuve), l'agent refusera ce serveur. Voir ProveServer.
 
             _serviceSessionCache.AddOrUpdateByConnectionId(Context.ConnectionId, Device);
 
@@ -256,7 +253,16 @@ public class AgentHub : Hub<IAgentHubClient>
             return true;
         }
 
-        if (TokensMatch(stored.Value.ServerVerificationToken, device.ServerVerificationToken))
+        // Agent 1.17+ : preuve signée sur le défi de cette connexion (usage unique).
+        if (Context.Items.Remove(AgentChallengeKey, out var challenge) &&
+            challenge is string serverChallenge &&
+            AgentTokenProof.AreEqual(AgentTokenProof.FromAgent(stored.Value.ServerVerificationToken, serverChallenge), device.ServerVerificationToken))
+        {
+            return true;
+        }
+
+        // Agent 1.16 : jeton en clair.
+        if (AgentTokenProof.AreEqual(stored.Value.ServerVerificationToken, device.ServerVerificationToken))
         {
             return true;
         }
@@ -281,9 +287,31 @@ public class AgentHub : Hub<IAgentHubClient>
             version >= new Version(1, 16);
     }
 
-    private static bool TokensMatch(string expected, string actual)
+    public string GetAgentChallenge()
     {
-        return CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(actual));
+        var challenge = AgentTokenProof.NewChallenge();
+        Context.Items[AgentChallengeKey] = challenge;
+        return challenge;
+    }
+
+    // L'agent vérifie le serveur sans lui avoir jamais envoyé son jeton.
+    public string ProveServer(string agentChallenge)
+    {
+        if (Device is null || string.IsNullOrEmpty(agentChallenge))
+        {
+            return string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(Device.ServerVerificationToken))
+        {
+            _logger.LogWarning(
+                "Poste {DeviceId} ({DeviceName}) inconnu du serveur mais déjà enrôlé : il refusera ce serveur. " +
+                "Réinstaller l'agent, ou effacer ServerVerificationToken dans son ConnectionInfo.json.",
+                Device.ID, Device.DeviceName);
+            return string.Empty;
+        }
+
+        return AgentTokenProof.FromServer(Device.ServerVerificationToken, agentChallenge);
     }
 
     public async Task DeviceHeartbeat(DeviceClientDto device)
@@ -365,6 +393,7 @@ public class AgentHub : Hub<IAgentHubClient>
         return settings.ServerUrl;
     }
 
+    // Agents antérieurs à la 1.17 uniquement : les récents passent par ProveServer.
     public string GetServerVerificationToken()
     {
         return $"{Device?.ServerVerificationToken}";

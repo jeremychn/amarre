@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Moq;
 using Remotely.Shared.Extensions;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -210,6 +211,32 @@ public class AgentHubTests
         Assert.IsFalse(await Connect("2026.10.15.1721", ""));
         Assert.IsFalse(await Connect("1.16.0.0", "faux"));
         Assert.IsTrue(await Connect("1.16.0.0", "jeton-du-poste"));
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task DeviceCameOnline_PreuveSurDefi()
+    {
+        var device = _testData.Org1Device1;
+        device.Drives = [];
+        await _dataService.AddOrUpdateDevice(device.ToDto());
+        _dataService.SetServerVerificationToken(device.ID, "jeton-du-poste");
+        await SetAgentVersion(device.ID, "1.17.0.0");
+
+        var hub = CreateHub(new AgentHubSessionCache(), out _);
+        var dto = device.ToDto();
+        dto.AgentVersion = "1.17.0.0";
+        dto.ServerVerificationToken = AgentTokenProof.FromAgent("jeton-du-poste", hub.GetAgentChallenge());
+        Assert.IsTrue(await hub.DeviceCameOnline(dto));
+
+        // Le serveur prouve qu'il connaît le jeton sans le renvoyer.
+        Assert.AreEqual(AgentTokenProof.FromServer("jeton-du-poste", "defi-agent"), hub.ProveServer("defi-agent"));
+
+        // Une preuve interceptée ne sert pas deux fois : le défi est à usage unique.
+        Assert.IsFalse(await hub.DeviceCameOnline(dto));
+        var other = CreateHub(new AgentHubSessionCache(), out _);
+        other.GetAgentChallenge();
+        Assert.IsFalse(await other.DeviceCameOnline(dto));
     }
 
     [TestMethod]

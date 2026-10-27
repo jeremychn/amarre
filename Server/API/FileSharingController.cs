@@ -2,7 +2,6 @@
 using Remotely.Server.Auth;
 using Remotely.Server.Extensions;
 using Remotely.Server.Services;
-using Remotely.Shared;
 
 namespace Remotely.Server.API;
 
@@ -23,7 +22,9 @@ public class FileSharingController : ControllerBase
     {
         var sharedFileResult = await _dataService.GetSharedFiled(id);
 
-        if (!sharedFileResult.IsSuccess)
+        if (!sharedFileResult.IsSuccess ||
+            !Request.Headers.TryGetOrganizationId(out var orgId) ||
+            sharedFileResult.Value.OrganizationID != orgId)
         {
             return NotFound();
         }
@@ -31,30 +32,5 @@ public class FileSharingController : ControllerBase
         var sharedFile = sharedFileResult.Value;
         var contentType = sharedFile.ContentType ?? "application/octet-stream";
         return File(sharedFile.FileContents, contentType, sharedFile.FileName);
-    }
-
-    [HttpPost]
-    [ServiceFilter(typeof(ExpiringTokenFilter))]
-    [RequestSizeLimit(AppConstants.MaxUploadFileSize)]
-    public async Task<IEnumerable<string>> Post()
-    {
-        if (Request.Form.Files.Count !> 0)
-        {
-            return Array.Empty<string>();
-        }
-
-        var fileIds = new List<string>();
-
-        if (!Request.Headers.TryGetOrganizationId(out var orgId))
-        {
-            orgId = string.Empty;
-        }
-
-        foreach (var file in Request.Form.Files)
-        {
-            var id = await _dataService.AddSharedFile(file, orgId);
-            fileIds.Add(id);
-        }
-        return fileIds;
     }
 }
