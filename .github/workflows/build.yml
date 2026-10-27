@@ -4,7 +4,7 @@
 #   - viewer : les .js commités doivent correspondre aux .ts (tsc 5.6.2)
 #   - agents et applis de prise de main : Windows (Desktop.Win ne compile que sous Windows)
 #   - image serveur : Dockerfile sans avertissement, image construite, aucune faille connue
-#     corrigeable (Grype, sévérité >= medium), même contrôle que les autres dépôts Docker
+#     corrigeable (Grype, sévérité >= medium)
 name: Build
 
 on:

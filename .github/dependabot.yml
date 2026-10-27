@@ -1,0 +1,11 @@
+# Une PR par semaine si une action GitHub utilisée par la CI a une nouvelle version.
+# Les failles NuGet et de l'image sont déjà bloquées par build.yml (chaque lundi et avant chaque release).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

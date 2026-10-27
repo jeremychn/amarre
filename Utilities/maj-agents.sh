@@ -3,7 +3,7 @@
 #
 # Usage (root, sur le serveur Docker) :
 #   ./maj-agents.sh              -> dernière release qui contient Content.zip
-#   ./maj-agents.sh v1.7         -> release précise (ou agents-2026.09.29.1600)
+#   ./maj-agents.sh v1.17        -> release précise (ou agents-X.Y, lancement manuel)
 #   GARDER_WIN64=1 ./maj-agents.sh   -> ne touche pas aux agents Windows x64
 #                                       (évite la mise à jour de tous les postes Windows)
 #

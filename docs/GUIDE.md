@@ -65,7 +65,7 @@ Faire **3.1 ou 3.2**, puis 3.3 à 3.5 dans les deux cas.
 
 ### 3.1 Méthode A : image depuis GitHub (ghcr.io)
 
-1. **Récupérer l'image** : la version à prendre est le dernier tag `vX.Y` de la page **Releases** du dépôt (l'image porte le numéro sans le `v`, par exemple `1.7`).
+1. **Récupérer l'image** : la version à prendre est le dernier tag `vX.Y` de la page **Releases** du dépôt (l'image porte le numéro sans le `v`, par exemple `1.17`).
    ```bash
    docker pull ghcr.io/jeremychn/amarre:X.Y
    ```
@@ -212,7 +212,7 @@ curl -fsSL https://raw.githubusercontent.com/jeremychn/amarre/main/Utilities/maj
 cd ~/amarre && git pull
 ./Utilities/maj-agents.sh                  # tout, dernière release
 GARDER_WIN64=1 ./Utilities/maj-agents.sh   # tout sauf les agents Windows x64
-./Utilities/maj-agents.sh v1.7             # une release précise
+./Utilities/maj-agents.sh v1.17            # une release précise
 DEST=/autre/content ./Utilities/maj-agents.sh   # autre dossier
 ```
 
@@ -300,30 +300,30 @@ Mêmes deux méthodes qu'à l'installation ([§3](#3-installer-le-serveur-premi�
 **Publier** : changer le fichier `VERSION` (`X.Y` ou `X.Y.Z`) et pousser sur `main` :
 
 ```bash
-echo 1.10 > VERSION
-git commit -am "version 1.10"
+echo 1.18 > VERSION
+git commit -S -am "Version 1.18"
 git push
 ```
 
-Si le tag `v1.10` n'existe pas encore, le workflow `.github/workflows/release.yml` (onglet **Actions**, ~20 min) :
+Si le tag `v1.18` n'existe pas encore, le workflow `.github/workflows/release.yml` (onglet **Actions**, ~20 min) :
 
 - lance les contrôles de `build.yml` (zéro warning, zéro paquet vulnérable, tests, démarrage du serveur) : rien n'est publié s'ils échouent ;
 - analyse l'image serveur avec Grype : une faille corrigeable de sévérité moyenne ou plus bloque la publication ;
-- pousse l'image serveur `ghcr.io/jeremychn/amarre:1.10` (et `latest`) ;
+- pousse l'image serveur `ghcr.io/jeremychn/amarre:1.18` (et `latest`) ;
 - joint les agents à la release (`Content.zip`) seulement s'ils ont changé ([§5.1](#51-ce-que-produit-la-release)) ;
-- crée la release et le tag `v1.10`.
+- crée la release et le tag `v1.18`.
 
-Un push sans changement de version ne publie rien. Pousser un tag à la main (`git tag v1.10 && git push origin v1.10`) donne le même résultat.
+Un push sans changement de version ne publie rien. Pousser un tag à la main (`git tag v1.18 && git push origin v1.18`) donne le même résultat.
 
-**Déployer** sur le serveur (registre déjà connecté, voir [§3.1](#31-méthode-a--image-depuis-github-ghcrio)) :
+**Déployer** sur le serveur (image publique : aucune connexion au registre) :
 
 ```bash
-docker pull ghcr.io/jeremychn/amarre:1.10
+docker pull ghcr.io/jeremychn/amarre:1.18
 ```
 
 Puis basculer le conteneur :
 
-- **Portainer** : Containers → `remotely` → **Duplicate/Edit** → registre **ghcr.io**, image `jeremychn/amarre:1.10` → **Deploy the container** → remplacer.
+- **Portainer** : Containers → `remotely` → **Duplicate/Edit** → registre **ghcr.io**, image `jeremychn/amarre:1.18` → **Deploy the container** → remplacer.
 - **Compose** : changer le tag dans `docker-compose.yml`, puis `docker compose up -d`.
 
 Si la release contient `Content.zip`, déployer aussi les agents avec `maj-agents.sh` ([§5.2](#52-déployer-sur-le-serveur)), ou en les signant d'abord sur une instance aux agents signés ([§5.4](#54-instance-aux-agents-signés)).

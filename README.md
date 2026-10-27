@@ -95,7 +95,7 @@ Avant le premier lancement, copie les scripts d'installation des agents dans le 
 ```bash
 docker create --name tmp ghcr.io/jeremychn/amarre:latest
 docker cp tmp:/app/wwwroot/Content/. /srv/remotely/content/ && docker rm tmp
-curl -fsSL https://raw.githubusercontent.com/jeremychn/amarre/main/Utilities/maj-agents.sh | sh
+curl -fsSL https://raw.githubusercontent.com/jeremychn/amarre/main/Utilities/maj-agents.sh | sudo sh
 docker compose up -d
 ```
 
@@ -107,7 +107,7 @@ Configuration complète, reverse proxy, mises à jour, retour arrière et dépan
 
 ```bash
 docker compose pull && docker compose up -d   # serveur
-curl -fsSL https://raw.githubusercontent.com/jeremychn/amarre/main/Utilities/maj-agents.sh | sh   # agents (les postes se mettent à jour seuls)
+curl -fsSL https://raw.githubusercontent.com/jeremychn/amarre/main/Utilities/maj-agents.sh | sudo sh   # agents (les postes se mettent à jour seuls)
 ```
 
 Les données, les clés et les agents sont sur l'hôte : revenir en arrière consiste à remettre l'image précédente.

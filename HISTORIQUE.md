@@ -44,7 +44,7 @@ Ce dépôt repart d'un historique git vierge (27/10/2026, publication sous le no
 ## Octobre 2026 — Publication par fichier VERSION
 
 - **Publication** : monter le fichier `VERSION` sur `main` suffit. La release relance d'abord les contrôles de `build.yml` (zéro warning, zéro paquet vulnérable, tests, démarrage du serveur), puis publie l'image ghcr, les agents s'ils ont changé, et pose le tag `vX.Y`. Plus besoin de droits pour pousser un tag.
-- **Analyse des failles de l'image** : à chaque pull request et chaque push sur `main`, l'image serveur est construite et analysée par Grype, comme dans les autres dépôts Docker ; une faille corrigeable de sévérité moyenne ou plus bloque la publication. L'image applique les correctifs de sécurité Debian au build (`apt-get upgrade`). (Trivy en v1.8, remplacé.)
+- **Analyse des failles de l'image** : à chaque pull request et chaque push sur `main`, l'image serveur est construite et analysée par Grype ; une faille corrigeable de sévérité moyenne ou plus bloque la publication. L'image applique les correctifs de sécurité Debian au build (`apt-get upgrade`). (Trivy en v1.8, remplacé.)
 - **Correctifs issus d'une revue de sécurité du code** :
   - viewer : les messages et noms de fichiers venant du poste distant sont affichés comme du texte (`textContent`), plus interprétés comme du HTML ;
   - seul un administrateur serveur peut réinitialiser le mot de passe, changer le rôle ou supprimer un compte administrateur serveur (page Organisation et API) ;
