@@ -507,6 +507,7 @@ public class DataService : IDataService
 
         var run = await dbContext.ScriptRuns
             .Include(x => x.Results)
+            .Include(x => x.Devices)
             .FirstOrDefaultAsync(x => x.Id == scriptRunId);
 
         if (run is null)
@@ -519,6 +520,14 @@ public class DataService : IDataService
         if (result is null)
         {
             return Result.Fail("Résultats introuvables.");
+        }
+
+        // L'ID d'exécution vient de l'agent (entier séquentiel) : seul un poste visé par cette exécution,
+        // de la même organisation, peut y rattacher son résultat.
+        if (result.OrganizationID != run.OrganizationID ||
+            run.Devices?.Any(x => x.ID == result.DeviceID) != true)
+        {
+            return Result.Fail("Ce résultat n'appartient pas à cette exécution.");
         }
 
         run.Results ??= new List<ScriptResult>();

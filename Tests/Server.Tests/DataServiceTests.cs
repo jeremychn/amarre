@@ -172,9 +172,21 @@ public class DataServiceTests
             ScriptInput = "echo test"
         };
 
+        // Un poste que l'exécution ne vise pas (ici d'une autre organisation) ne peut pas y rattacher son résultat.
+        var foreignDto = new ScriptResultDto()
+        {
+            DeviceID = _testData.Org2Device1.ID,
+            InputType = ScriptInputType.ScheduledScript,
+            ScriptRunId = scriptRun.Id,
+            Shell = ScriptingShell.PSCore,
+            ScriptInput = "echo test"
+        };
+        var foreignResult = (await _dataService.AddScriptResult(foreignDto)).Value!;
+        Assert.IsFalse((await _dataService.AddScriptResultToScriptRun(foreignResult.ID, scriptRun.Id)).IsSuccess);
+
         var scriptResult = (await _dataService.AddScriptResult(dto)).Value!;
 
-        await _dataService.AddScriptResultToScriptRun(scriptResult.ID, scriptRun.Id);
+        Assert.IsTrue((await _dataService.AddScriptResultToScriptRun(scriptResult.ID, scriptRun.Id)).IsSuccess);
 
         pendingRuns = await _dataService.GetPendingScriptRuns(_testData.Org1Device1.ID);
 
