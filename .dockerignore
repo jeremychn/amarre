@@ -1,0 +1,3 @@
+# Le Dockerfile n'a besoin que du serveur publié
+*
+!Server/bin/publish

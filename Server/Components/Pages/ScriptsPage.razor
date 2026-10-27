@@ -1,0 +1,30 @@
+﻿@page "/scripts/{activeTab?}"
+@attribute [Authorize]
+@inherits AuthComponentBase
+
+<CascadingValue Value="this">
+    <TabControl InitialActiveTab="@(ActiveTab ?? "saved-scripts")">
+        <TabHeaders>
+            <TabHeader Name="saved-scripts" NavigationUri="/scripts/saved-scripts">
+                Scripts enregistrés
+            </TabHeader>
+            <TabHeader Name="run-script" NavigationUri="/scripts/run-script">
+                Exécuter un script
+            </TabHeader>
+            <TabHeader Name="script-schedules" NavigationUri="/scripts/script-schedules">
+                Planifications
+            </TabHeader>
+        </TabHeaders>
+        <TabContents>
+            <TabContent Name="saved-scripts">
+                <SavedScripts />
+            </TabContent>
+            <TabContent Name="run-script">
+                <RunScript />
+            </TabContent>
+            <TabContent Name="script-schedules">
+                <ScriptSchedules />
+            </TabContent>
+        </TabContents>
+    </TabControl>
+</CascadingValue>

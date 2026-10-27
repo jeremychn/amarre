@@ -1,0 +1,43 @@
+﻿@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using Remotely.Server.Data
+
+@inject SignInManager<RemotelyUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+
+@if (externalLogins.Length == 0)
+{
+    <div>
+        <p>
+            Aucun service d'authentification externe n'est configuré. Voir cet <a href="https://go.microsoft.com/fwlink/?LinkID=532715">article
+            sur la connexion via des services externes</a>.
+        </p>
+    </div>
+}
+else
+{
+    <form class="form-horizontal" action="Account/PerformExternalLogin" method="post">
+        <div>
+            <AntiforgeryToken />
+            <input type="hidden" name="ReturnUrl" value="@ReturnUrl" />
+            <p>
+                @foreach (var provider in externalLogins)
+                {
+                    <button type="submit" class="btn btn-primary" name="provider" value="@provider.Name" title="Se connecter avec votre compte @provider.DisplayName">@provider.DisplayName</button>
+                }
+            </p>
+        </div>
+    </form>
+}
+
+@code {
+    private AuthenticationScheme[] externalLogins = [];
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        externalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).ToArray();
+    }
+}

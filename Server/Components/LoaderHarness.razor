@@ -1,0 +1,26 @@
+﻿@using Bitbound.SimpleMessenger;
+@using Remotely.Server.Models.Messages;
+@inherits MessengerSubscriber
+
+@if (_loaderShown)
+{
+    <LoadingSignal StatusMessage="@_statusMessage" />
+}
+
+@code {
+    private bool _loaderShown;
+    private string _statusMessage = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await Register<ShowLoaderMessage>(HandleShowLoaderMessage);
+    }
+
+    private async Task HandleShowLoaderMessage(object subscriber, ShowLoaderMessage message)
+    {
+        _loaderShown = message.IsShown;
+        _statusMessage = message.StatusMessage;
+        await InvokeAsync(StateHasChanged);
+    }
+}

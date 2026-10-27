@@ -1,0 +1,53 @@
+﻿.device-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .75rem;
+}
+
+.toolbar-search {
+    flex: 1 1 18rem;
+    min-width: 12rem;
+}
+
+.toolbar-item {
+    width: auto;
+    flex-wrap: nowrap;
+}
+
+    .toolbar-item .form-select {
+        min-width: 9rem;
+    }
+
+.toolbar-check {
+    margin: 0 .25rem;
+    white-space: nowrap;
+}
+
+.device-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem;
+    margin: .5rem 0 4rem;
+    font-size: .85rem;
+}
+
+.pager-input {
+    width: 4rem;
+    text-align: center;
+}
+
+.pager-size {
+    width: auto;
+    margin-left: .75rem;
+}
+
+#deviceListDiv {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+    overflow-x: hidden;
+}

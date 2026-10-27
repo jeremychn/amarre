@@ -1,0 +1,166 @@
+﻿@inherits AuthComponentBase
+@attribute [Authorize]
+
+<div class="outer-grid mt-3 auto-height">
+    <EditForm Model="_selectedScript" OnValidSubmit="OnValidSubmit" class="h-100 pb-3">
+        <div class="h-100 left-outer-grid">
+            <div>
+                <div class="row">
+                    <DataAnnotationsValidator />
+
+                    <div class="col-12">
+                        <ValidationSummary />
+                    </div>
+
+                    <div class="col-12">
+                        <AlertBanner Message="@_alertMessage" OnClose="() => _alertMessage = string.Empty" />
+                    </div>
+
+                    <div class="mt-2 col-md-6 col-lg-4">
+                        <label>Shell</label>
+                        <InputSelect class="form-control" DisplayName="Shell" @bind-Value="_selectedScript.Shell">
+                            @foreach (var shell in Enum.GetValues<ScriptingShell>())
+                            {
+                                <option @key="@shell" value="@shell">@shell</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => _selectedScript.Shell" />
+                    </div>
+
+                    <div class="mt-2 col-md-6 col-lg-4">
+                        <label>Nom du script</label>
+                        <InputText class="form-control" DisplayName="Nom du script" @bind-Value="_selectedScript.Name" placeholder="Nom du script" />
+                        <ValidationMessage For="() => _selectedScript.Name" />
+                    </div>
+
+                    <div class="mt-2 col-md-6 col-lg-4">
+                        <label>Dossier</label>
+                        <InputText class="form-control" DisplayName="Dossier" @bind-Value="_selectedScript.FolderPath" placeholder="Exemple : clients/exemple/maintenance" />
+                        <ValidationMessage For="() => _selectedScript.FolderPath" />
+                    </div>
+
+
+                    <div class="mt-2 col-md-6 col-lg-4">
+                        <label>Public</label>
+                        <br />
+                        <InputCheckbox DisplayName="Public" @bind-Value="_selectedScript.IsPublic" />
+                        <ValidationMessage For="() => _selectedScript.IsPublic" />
+                    </div>
+                    <div class="mt-2 col-md-6 col-lg-4">
+                        <label>Script rapide</label>
+                        <br />
+                        <InputCheckbox DisplayName="Script rapide" @bind-Value="_selectedScript.IsQuickScript" />
+                        <ValidationMessage For="() => _selectedScript.IsQuickScript" />
+                    </div>
+                    <div class="mt-2 col-md-6 col-lg-4">
+                        <label>Auteur</label>
+                        <br />
+                        <input class="form-control" readonly value="@_selectedScript.Creator?.UserName" />
+                    </div>
+                    <div class="mt-2 col-12">
+                        <button class="btn btn-primary"
+                                type="submit"
+                                disabled="@(!CanModifyScript)">
+                            Enregistrer
+                        </button>
+
+                        <button class="btn btn-success ms-3" type="button" @onclick="CreateNew">
+                            Nouveau
+                        </button>
+                        <button class="btn btn-danger ms-3" type="button"
+                                disabled="@(!CanDeleteScript)"
+                                @onclick="DeleteSelectedScript">
+                            Supprimer
+                        </button>
+                    </div>
+                    <div class="mt-2 col-12">
+                        <button type="button" class="btn btn-link me-3" @onclick="ToggleAlertOptionsShown">
+                            Alertes
+                        </button>
+                        <button type="button" class="btn btn-link" @onclick="ToggleEnvironmentVarsShown">
+                            Variables d'environnement
+                        </button>
+                    </div>
+                    <div class="my-2 col-12 collapse @_alertOptionsShowClass">
+                        <h5>
+                            <span class="me-2">En cas d'erreur</span>
+                            <button class="btn btn-sm btn-secondary" type="button" @onclick="ShowAlertErrorHelp">
+                                <span class="oi oi-question-mark" />
+                            </button>
+                        </h5>
+                        <div class="row">
+                            <div class="mt-2 col-md-6">
+                                <label>Envoyer un e-mail</label>
+                                <br />
+                                <InputCheckbox DisplayName="E-mail en cas d'erreur" @bind-Value="_selectedScript.SendEmailOnError" />
+                                <ValidationMessage For="() => _selectedScript.SendEmailOnError" />
+                                <br />
+                                to
+                                <br />
+                                <InputText type="email"
+                                           class="form-control"
+                                           disabled="@(!_selectedScript.SendEmailOnError)"
+                                           DisplayName="Destinataire de l'e-mail d'erreur"
+                                           @bind-Value="_selectedScript.SendErrorEmailTo" />
+                                <ValidationMessage For="() => _selectedScript.SendErrorEmailTo" />
+                            </div>
+                            <div class="mt-2 col-md-6">
+                                <label>Créer une alerte</label>
+                                <br />
+                                <InputCheckbox DisplayName="Alerte en cas d'erreur" @bind-Value="_selectedScript.GenerateAlertOnError" />
+                                <ValidationMessage For="() => _selectedScript.GenerateAlertOnError" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="my-2 col-12 collapse @_environmentVarsShowClass">
+                        <h5>Variables d'environnement</h5>
+                        <div class="row">
+                            <div class="mt-2 col-md-6">
+                                <div>ID de l'appareil</div>
+                                <div class="small text-muted mt-1">L'ID (GUID) de l'appareil qui exécute le script.</div>
+                                <input type="text" readonly class="form-control" value="DeviceId" />
+                            </div>
+                            <div class="mt-2 col-md-6">
+                                <div>URL du serveur</div>
+                                <div class="small text-muted mt-1">L'URL du serveur auquel l'appareil se connecte (ex. https://app.example.com).</div>
+                                <input type="text" readonly class="form-control" value="ServerUrl" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h100">
+                <InputTextArea @bind-Value="_selectedScript.Content" 
+                               DisplayName="Contenu du script" 
+                               class="h-100 w-100"
+                               spellcheck="false"
+                               autocomplete="off"
+                               placeholder="Saisir le script ici" />
+                <ValidationMessage For="() => _selectedScript.Content" />
+            </div>
+        </div>
+    </EditForm>
+    <div class="tree-view-wrapper-grid h-100 pb-3">
+        <div>
+            <h5>Scripts enregistrés</h5>
+            <div>
+                <input type="checkbox" @bind="ParentPage.ShowOnlyMyScripts" />
+                <span class="align-top">Seulement les miens</span>
+            </div>
+            <div>
+                <input type="search" class="form-control form-control-sm my-1" placeholder="Rechercher un script"
+                       @bind="ParentPage.SearchText" @bind:event="oninput" />
+            </div>
+        </div>
+        <TreeView DataSource="ParentPage.TreeNodes"
+                  ItemTypeSelector="x => x.ItemType"
+                  ItemHeaderSelector="x => x.Name"
+                  ItemSelected="ScriptSelected"
+                  ChildItemSelector="x => x.ChildItems"
+                  ItemIconCssSelector="ParentPage.GetItemIconCss"
+                  KeySelector="x => x.Id"
+                  WrapperStyle="border: 1px solid gray; padding: .5em; height: 100%; border-radius: 5px;"
+                  T="ScriptTreeNode" />
+    </div>
+</div>

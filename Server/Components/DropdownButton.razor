@@ -1,0 +1,30 @@
+﻿@inject IJsInterop JsInterop
+
+<div class="@WrapperClass">
+    <button class="btn dropdown-toggle @ButtonClass"
+            type="button"
+            data-bs-toggle="dropdown">
+        @ButtonContent
+    </button>
+    <ul class="dropdown-menu @DropDownMenuClass" >
+        @ChildListItems
+    </ul>
+</div>
+
+@code {
+    [Parameter]
+    public string? ButtonClass { get; set; }
+
+    [Parameter]
+    public RenderFragment? ButtonContent { get; set; }
+
+    [Parameter]
+    public string? WrapperClass { get; set; }
+
+    [Parameter]
+    public string? DropDownMenuClass { get; set; }
+
+
+    [Parameter]
+    public RenderFragment? ChildListItems { get; set; }
+}

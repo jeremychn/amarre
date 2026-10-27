@@ -1,0 +1,177 @@
+﻿@page "/server-logs"
+@using System.Collections.ObjectModel;
+@attribute [Authorize(Policy = PolicyNames.ServerAdminRequired)]
+@inherits AuthComponentBase
+
+@inject IDataService DataService
+@inject IToastService ToastService
+@inject IJsInterop JsInterop
+@inject ILogsManager LogsManager
+@inject ILoaderService LoaderService
+
+<h3 class="mb-3">Journaux serveur</h3>
+
+<div class="buttons-row mb-3">
+    <div>
+        <button class="btn btn-danger" type="button" @onclick="ClearAllLogs">
+            Supprimer les journaux
+        </button>
+    </div>
+    <div>
+        <button class="btn btn-primary"
+                onclick="window.open('/API/ServerLogs/Download', '_blank')">
+            Télécharger les journaux
+        </button>
+    </div>
+    <div>
+        <button class="btn btn-primary"
+                onclick="window.open('/API/ScriptResults', '_blank')">
+            Télécharger l'historique des scripts
+        </button>
+    </div>
+</div>
+<div class="filters-row mb-3">
+    <div style="display:inline-block">
+        <strong>Type :</strong>
+        <br />
+        <select class="form-control-sm" @bind="LogLevel">
+            <option value="">Tous</option>
+            @foreach (var eventType in Enum.GetValues(typeof(LogLevel)))
+            {
+                <option @key="eventType" value="@eventType">@eventType</option>
+            }
+        </select>
+    </div>
+    <div style="display:inline-block">
+        <strong>Filtre :</strong>
+        <br />
+        <input type="text" @bind="MessageFilter" @bind:event="oninput" />
+    </div>
+    <div style="display:inline-block">
+        <strong>Du :</strong>
+        <br />
+        <input type="date" @bind="FromDate" />
+    </div>
+    <div style="display:inline-block">
+        <strong>Au :</strong>
+        <br />
+        <input type="date" @bind="ToDate" />
+    </div>
+</div>
+
+<textarea readonly class="logs-content bg-dark text-white">
+    @(string.Join(Environment.NewLine, _filteredLogs))
+</textarea>
+
+@code {
+    private readonly string _messageDebounceKey = Guid.NewGuid().ToString();
+    private readonly List<string> _filteredLogs = new();
+    private LogLevel? _logLevel;
+    private string _messageFilter = string.Empty;
+
+    private DateTimeOffset _fromDate = DateTimeOffset.Now.AddDays(-1);
+    private DateTimeOffset _toDate = DateTimeOffset.Now;
+
+    private DateTimeOffset FromDate
+    {
+        get => _fromDate;
+        set
+        {
+            if (value > _toDate)
+            {
+                ToastService.ShowToast("Plage de dates invalide.", classString: "bg-warning");
+                return;
+            }
+            _fromDate = value;
+            _ = RefreshLogs();
+        }
+    }
+
+    private LogLevel? LogLevel
+    {
+        get => _logLevel;
+        set
+        {
+            _logLevel = value;
+            _ = RefreshLogs();
+        }
+    }
+
+    private string MessageFilter
+    {
+        get => _messageFilter;
+        set
+        {
+            _messageFilter = value;
+
+            Debouncer.Debounce(
+                TimeSpan.FromSeconds(1),
+                () => _ = RefreshLogs(),
+                _messageDebounceKey);
+        }
+    }
+
+    private DateTimeOffset ToDate
+    {
+        get => _toDate;
+        set
+        {
+            if (value < _fromDate)
+            {
+                ToastService.ShowToast("Plage de dates invalide.", classString: "bg-warning");
+                return;
+            }
+            _toDate = value;
+            _ = RefreshLogs();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            await RefreshLogs();
+        }
+    }
+
+
+
+    private async Task ClearAllLogs()
+    {
+        var result = await JsInterop.Confirm("Supprimer les journaux des jours précédents ? Ceux d'aujourd'hui sont conservés.");
+        if (result)
+        {
+            using (var _ = LoaderService.ShowLoader("Suppression des journaux"))
+            {
+                await LogsManager.DeleteLogs();
+            }
+            await RefreshLogs();
+            ToastService.ShowToast("Journaux supprimés.");
+        }
+    }
+
+    private async Task RefreshLogs()
+    {
+        using var _ = await LoaderService.ShowLoader("Actualisation des journaux");
+        _filteredLogs.Clear();
+
+        var logsAsync = LogsManager.GetLogs(
+               _fromDate,
+               _toDate,
+               _messageFilter,
+               _logLevel);
+
+        await foreach (var line in logsAsync)
+        {
+            _filteredLogs.Add(line);
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+}

@@ -1,0 +1,31 @@
+﻿@inject IThemeProvider ThemeProvider
+
+<div class="signal-background">
+    <div class="signal-wrapper text-center">
+        @if (!string.IsNullOrEmpty(StatusMessage))
+        {
+            <h4>
+                @StatusMessage
+            </h4>
+        }
+        <div class="signal @(GetSignalClass())"></div>
+    </div>
+</div>
+
+@code {
+    private Theme _theme;
+
+    [Parameter]
+    public string StatusMessage { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _theme = await ThemeProvider.GetEffectiveTheme();
+        await base.OnInitializedAsync();
+    }
+
+    private string GetSignalClass()
+    {
+        return _theme == Theme.Dark ? "signal-dark" : "signal-light";
+    }
+}

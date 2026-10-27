@@ -1,0 +1,101 @@
+﻿@page "/Account/Manage/TwoFactorAuthentication"
+
+@using Microsoft.AspNetCore.Http.Features
+@using Microsoft.AspNetCore.Identity
+@using Remotely.Server.Data
+
+@inject UserManager<RemotelyUser> UserManager
+@inject SignInManager<RemotelyUser> SignInManager
+@inject IdentityUserAccessor UserAccessor
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Double authentification</PageTitle>
+
+<StatusMessage />
+<h3>Double authentification</h3>
+@if (canTrack)
+{
+    if (is2faEnabled)
+    {
+        if (recoveryCodesLeft == 0)
+        {
+            <div class="alert alert-danger">
+                <strong>Il ne vous reste aucun code de récupération.</strong>
+                <p>Vous devez <a href="Account/Manage/GenerateRecoveryCodes">générer de nouveaux codes de récupération</a> avant de pouvoir vous connecter avec l'un d'eux.</p>
+            </div>
+        }
+        else if (recoveryCodesLeft == 1)
+        {
+            <div class="alert alert-danger">
+                <strong>Il vous reste 1 code de récupération.</strong>
+                <p>Vous pouvez <a href="Account/Manage/GenerateRecoveryCodes">générer de nouveaux codes de récupération</a>.</p>
+            </div>
+        }
+        else if (recoveryCodesLeft <= 3)
+        {
+            <div class="alert alert-warning">
+                <strong>Il vous reste @recoveryCodesLeft codes de récupération.</strong>
+                <p>Pensez à <a href="Account/Manage/GenerateRecoveryCodes">générer de nouveaux codes de récupération</a>.</p>
+            </div>
+        }
+
+        if (isMachineRemembered)
+        {
+            <form style="display: inline-block" @formname="forget-browser" @onsubmit="OnSubmitForgetBrowserAsync" method="post">
+                <AntiforgeryToken />
+                <button type="submit" class="btn btn-primary">Oublier ce navigateur</button>
+            </form>
+        }
+
+        <a href="Account/Manage/Disable2fa" class="btn btn-primary">Désactiver la double authentification</a>
+        <a href="Account/Manage/GenerateRecoveryCodes" class="btn btn-primary">Régénérer les codes de récupération</a>
+    }
+
+    <h4>Application d'authentification</h4>
+    @if (!hasAuthenticator)
+    {
+        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Ajouter une application d'authentification</a>
+    }
+    else
+    {
+        <a href="Account/Manage/EnableAuthenticator" class="btn btn-primary">Configurer l'application d'authentification</a>
+        <a href="Account/Manage/ResetAuthenticator" class="btn btn-primary">Réinitialiser l'application d'authentification</a>
+    }
+}
+else
+{
+    <div class="alert alert-danger">
+        <strong>La politique de confidentialité et de cookies n'a pas été acceptée.</strong>
+        <p>Vous devez l'accepter avant d'activer la double authentification.</p>
+    </div>
+}
+
+@code {
+    private bool canTrack;
+    private bool hasAuthenticator;
+    private int recoveryCodesLeft;
+    private bool is2faEnabled;
+    private bool isMachineRemembered;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var user = await UserAccessor.GetRequiredUserAsync(HttpContext);
+        canTrack = HttpContext.Features.Get<ITrackingConsentFeature>()?.CanTrack ?? true;
+        hasAuthenticator = await UserManager.GetAuthenticatorKeyAsync(user) is not null;
+        is2faEnabled = await UserManager.GetTwoFactorEnabledAsync(user);
+        isMachineRemembered = await SignInManager.IsTwoFactorClientRememberedAsync(user);
+        recoveryCodesLeft = await UserManager.CountRecoveryCodesAsync(user);
+    }
+
+    private async Task OnSubmitForgetBrowserAsync()
+    {
+        await SignInManager.ForgetTwoFactorClientAsync();
+
+        RedirectManager.RedirectToCurrentPageWithStatus(
+            "Ce navigateur a été oublié. À la prochaine connexion depuis ce navigateur, le code de double authentification sera demandé.",
+            HttpContext);
+    }
+}

@@ -1,0 +1,166 @@
+# Publie une version :
+#   - image serveur  -> ghcr.io/jeremychn/amarre:X.Y (+ latest)
+#   - agents (Windows x64/x86, Linux x64/arm64, macOS x64/arm64) -> Content.zip dans la release GitHub,
+#     seulement si leur code a changé depuis le tag précédent ; non signés
+# Deux déclencheurs, même résultat :
+#   - le fichier VERSION change sur main et le tag vX.Y n'existe pas encore : la release crée le tag ;
+#   - un tag vX.Y poussé à la main (git tag vX.Y && git push origin vX.Y).
+# Les contrôles de build.yml (zéro warning, zéro paquet vulnérable, tests, image sans faille connue
+# corrigeable via Grype) tournent à chaque push sur main et passent avant toute publication.
+# Lancement manuel (workflow_dispatch) : agents seulement, release agents-<version>, pas d'image serveur
+# (sinon :latest serait écrasé par du code non publié).
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # Tag à publier : celui poussé, ou vX.Y lu dans VERSION s'il n'existe pas encore
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: |
+          tag=""; publish=false
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"; publish=true
+          elif [ "$GITHUB_EVENT_NAME" = push ]; then
+            v=$(tr -cd '0-9.' < VERSION)   # tolère BOM, UTF-16 (PowerShell), espaces
+            if ! [[ "$v" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+              echo "::error title=VERSION::« $v » n'est pas une version X.Y ou X.Y.Z"; exit 1
+            fi
+            tag="v$v"
+            git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || publish=true
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Version::${tag:-aucune} (publication : $publish)"
+
+  checks:
+    needs: version
+    uses: ./.github/workflows/build.yml
+
+  server:
+    needs: [version, checks]
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # Les .js du viewer sont versionnés : pas de compilation TypeScript ici.
+      - name: Publish serveur
+        run: dotnet publish Server/Server.csproj -c Release -o Server/bin/publish -p:TypeScriptCompileBlocked=true
+
+      - name: Build et push de l'image
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/amarre
+          VERSION=${TAG#v}
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker build -f Server/Dockerfile -t $IMAGE:$VERSION -t $IMAGE:latest .
+          docker push $IMAGE:$VERSION
+          docker push $IMAGE:latest
+
+  # Après l'image serveur : la release (qui crée le tag) ne sort que si tout a réussi
+  agents:
+    needs: [version, server]
+    if: >-
+      !cancelled() && (github.event_name == 'workflow_dispatch'
+      || (needs.version.outputs.publish == 'true' && needs.server.result == 'success'))
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # historique + tags pour comparer avec la version précédente
+
+      # Rebuild seulement si le code des agents a changé depuis le tag précédent
+      # (toujours en lancement manuel ou s'il n'y a pas de tag précédent).
+      - name: Agents modifiés ?
+        shell: pwsh
+        run: |
+          $prev = git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>$null
+          $changed = if ('${{ github.event_name }}' -ne 'push' -or -not $prev) { 'force' } else {
+            git diff --name-only $prev HEAD -- Agent Desktop.Native Desktop.Shared Desktop.UI Desktop.Win Desktop.Linux Shared Directory.Build.props
+          }
+          "BUILD=$([bool]$changed)" >> $env:GITHUB_ENV
+          "PREV=$prev" >> $env:GITHUB_ENV
+          exit 0
+
+      - uses: actions/setup-dotnet@v6
+        if: env.BUILD == 'True'
+        with:
+          dotnet-version: 10.0.x
+
+      # Même sortie que Utilities/Publish.ps1 : tout atterrit dans Server/wwwroot/Content,
+      # puis Content.zip = contenu prêt à décompresser dans le volume "content" du serveur.
+      # macOS : agent seul (pas d'appli de prise de main Remotely pour Mac).
+      - name: Build des agents (Windows x64/x86, Linux x64/arm64, macOS x64/arm64)
+        if: env.BUILD == 'True'
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          # Version des agents = celle de la release qui les recompile (tag publié, sinon fichier VERSION)
+          $V = '${{ needs.version.outputs.tag }}'.TrimStart('v')
+          if (-not $V) { $V = (Get-Content VERSION -Raw) -replace '[^0-9.]', '' }
+          $ver = "/p:Version=$V", "/p:FileVersion=$V"
+          $C = ".\Server\wwwroot\Content"
+          $zips = [ordered]@{ 'win-x64' = 'Remotely-Win-x64'; 'win-x86' = 'Remotely-Win-x86'; 'linux-x64' = 'Remotely-Linux'; 'linux-arm64' = 'Remotely-Linux-arm64'; 'osx-x64' = 'Remotely-MacOS-x64'; 'osx-arm64' = 'Remotely-MacOS-arm64' }
+          foreach ($rid in $zips.Keys) {
+            dotnet publish @ver --runtime $rid --self-contained -c Release -o ".\Agent\bin\publish\$rid" .\Agent
+          }
+          foreach ($p in 'packaged-win-x64', 'packaged-win-x86', 'desktop-win-x64', 'desktop-win-x86') {
+            dotnet publish @ver -p:PublishProfile=$p -c Release .\Desktop.Win
+          }
+          foreach ($p in 'packaged-linux-x64', 'packaged-linux-arm64', 'desktop-linux-x64') {
+            dotnet publish @ver -p:PublishProfile=$p -c Release .\Desktop.Linux
+          }
+          foreach ($rid in $zips.Keys) {
+            Compress-Archive -Path ".\Agent\bin\publish\$rid\*" -DestinationPath "$C\$($zips[$rid]).zip"
+          }
+          Get-ChildItem $C -Recurse -Filter *.pdb | Remove-Item
+          # Lu par le serveur pour le témoin « agent obsolète »
+          [IO.File]::WriteAllText("$C\AgentVersion.txt", $V)
+          New-Item dist -ItemType Directory | Out-Null
+          Compress-Archive -Path "$C\*" -DestinationPath dist\Content.zip
+          "AGENT_VERSION=$V" >> $env:GITHUB_ENV
+
+      - name: Release GitHub
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ needs.version.outputs.tag }}"
+          if ($tag.StartsWith('v')) {
+            $image = "Image serveur : ghcr.io/${{ github.repository_owner }}/amarre:$($tag.TrimStart('v'))"
+          } else {
+            # Lancement manuel : pas d'image serveur. Si la release existe déjà (relance sur le
+            # même commit), on remplace juste Content.zip au lieu d'échouer.
+            $tag = "agents-$env:AGENT_VERSION"
+            $image = "Pas d'image serveur (lancement manuel)."
+            gh release view $tag *> $null
+            if ($LASTEXITCODE -eq 0) {
+              gh release upload $tag dist\Content.zip --clobber
+              exit $LASTEXITCODE
+            }
+          }
+          if ($env:BUILD -eq 'True') {
+            gh release create $tag dist\Content.zip --target $env:GITHUB_SHA --title "$tag (agents $env:AGENT_VERSION)" --notes "Agents v$env:AGENT_VERSION (non signés) : Windows x64/x86, Linux x64/arm64, macOS x64/arm64. Décompresser Content.zip dans le volume content du serveur. $image"
+          } else {
+            gh release create $tag --target $env:GITHUB_SHA --title "$tag (agents inchangés)" --notes "Agents inchangés depuis $env:PREV : garder ceux de cette release. $image"
+          }

@@ -1,0 +1,158 @@
+@page "/backup"
+@attribute [Authorize]
+@inherits AuthComponentBase
+
+@inject IDataService DataService
+@inject IBackupService BackupService
+@inject IToastService ToastService
+@inject IJsInterop JsInterop
+
+<h3 class="mb-3">Sauvegarde</h3>
+
+@if (!string.IsNullOrWhiteSpace(_alertMessage))
+{
+    <AlertBanner Message="@_alertMessage" />
+}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <span class="oi oi-data-transfer-download me-2"></span>Télécharger une sauvegarde
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Exporte vos appareils (alias, tags, notes, groupe) et vos groupes d'appareils
+                    dans un fichier JSON.
+                </p>
+                <button class="btn btn-primary" @onclick="DownloadBackup" disabled="@_isProcessing">
+                    <span class="oi oi-data-transfer-download me-1"></span> Télécharger (JSON)
+                </button>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <span class="oi oi-data-transfer-upload me-2"></span>Restaurer une sauvegarde
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">
+                    Réapplique les alias, tags, notes et groupes d'un fichier de sauvegarde
+                    aux appareils qui existent toujours.
+                </p>
+                <div class="mb-3">
+                    <InputFile OnChange="OnFileSelected" class="form-control" accept=".json" />
+                </div>
+                @if (_backup is not null)
+                {
+                    <p class="text-muted small">
+                        @_fileName : @_backup.Devices.Count appareil(s), sauvegarde du @_backup.CreatedAt.LocalDateTime.ToString("g")
+                    </p>
+                    <button class="btn btn-warning" @onclick="Restore" disabled="@_isProcessing">
+                        <span class="oi oi-loop-circular me-1"></span> Restaurer
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? _alertMessage;
+    private bool _isProcessing;
+    private BackupData? _backup;
+    private string? _fileName;
+
+    private async Task DownloadBackup()
+    {
+        EnsureUserSet();
+        _isProcessing = true;
+        _alertMessage = null;
+
+        try
+        {
+            var json = BackupService.CreateBackupJson(
+                UserName,
+                DataService.GetDevicesForUser(UserName),
+                DataService.GetDeviceGroups(UserName));
+
+            await JsInterop.DownloadTextFile($"remotely-sauvegarde-{DateTimeOffset.Now:yyyyMMdd-HHmmss}.json", json);
+            ToastService.ShowToast("Sauvegarde téléchargée.");
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Erreur pendant la sauvegarde : {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        EnsureUserSet();
+        _alertMessage = null;
+        _backup = null;
+        _fileName = e.File.Name;
+
+        try
+        {
+            using var reader = new StreamReader(e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+            var backup = BackupService.ReadBackup(await reader.ReadToEndAsync());
+
+            if (backup is null)
+            {
+                _alertMessage = "Ce fichier n'est pas une sauvegarde valide.";
+            }
+            else if (!string.Equals(backup.UserName, UserName, StringComparison.OrdinalIgnoreCase))
+            {
+                _alertMessage = "Cette sauvegarde appartient à un autre compte.";
+            }
+            else
+            {
+                _backup = backup;
+            }
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Impossible de lire le fichier : {ex.Message}";
+        }
+    }
+
+    private async Task Restore()
+    {
+        EnsureUserSet();
+        if (_backup is null)
+        {
+            return;
+        }
+
+        _isProcessing = true;
+        _alertMessage = null;
+
+        try
+        {
+            var count = await BackupService.RestoreBackup(
+                _backup,
+                DataService.GetDevicesForUser(UserName),
+                DataService.GetDeviceGroups(UserName));
+
+            _backup = null;
+            _alertMessage = $"Sauvegarde restaurée : {count} appareil(s) mis à jour.";
+            ToastService.ShowToast("Sauvegarde restaurée.");
+        }
+        catch (Exception ex)
+        {
+            _alertMessage = $"Erreur pendant la restauration : {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+}

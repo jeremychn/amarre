@@ -1,0 +1,12 @@
+﻿@attribute [Authorize]
+@inherits AuthComponentBase
+
+@if (_chatSessions.Any())
+{
+    <div class="chat-frame">
+        @foreach (var session in _chatSessions)
+        {
+            <ChatCard @key="session.SessionId" Session="session" />
+        }
+    </div>
+}

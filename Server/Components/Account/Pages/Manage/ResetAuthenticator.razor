@@ -1,0 +1,52 @@
+﻿@page "/Account/Manage/ResetAuthenticator"
+
+@using Microsoft.AspNetCore.Identity
+@using Remotely.Server.Data
+
+@inject UserManager<RemotelyUser> UserManager
+@inject SignInManager<RemotelyUser> SignInManager
+@inject IdentityUserAccessor UserAccessor
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<ResetAuthenticator> Logger
+
+<PageTitle>Réinitialiser la clé d'authentification</PageTitle>
+
+<StatusMessage />
+<h3>Réinitialiser la clé d'authentification</h3>
+<div class="alert alert-warning" role="alert">
+    <p>
+        <span class="glyphicon glyphicon-warning-sign"></span>
+        <strong>Après réinitialisation, votre application d'authentification ne fonctionnera plus tant que vous ne l'aurez pas reconfigurée.</strong>
+    </p>
+    <p>
+        La double authentification est désactivée jusqu'à la vérification de l'application.
+        Si vous n'allez pas au bout de la configuration, vous risquez de perdre l'accès à votre compte.
+    </p>
+</div>
+<div>
+    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
+        <AntiforgeryToken />
+        <button class="btn btn-danger" type="submit">Réinitialiser la clé</button>
+    </form>
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private async Task OnSubmitAsync()
+    {
+        var user = await UserAccessor.GetRequiredUserAsync(HttpContext);
+        await UserManager.SetTwoFactorEnabledAsync(user, false);
+        await UserManager.ResetAuthenticatorKeyAsync(user);
+        var userId = await UserManager.GetUserIdAsync(user);
+        Logger.LogInformation("User with ID '{UserId}' has reset their authentication app key.", userId);
+
+        await SignInManager.RefreshSignInAsync(user);
+
+        RedirectManager.RedirectToWithStatus(
+            "Account/Manage/EnableAuthenticator",
+            "Clé réinitialisée : configurez votre application d'authentification avec la nouvelle clé.",
+            HttpContext);
+    }
+}

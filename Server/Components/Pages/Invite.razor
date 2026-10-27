@@ -1,0 +1,72 @@
+﻿@page "/invite/{inviteId?}"
+@inject IDataService DataService
+@inject AuthenticationStateProvider AuthProvider
+@inject IToastService Toasts
+
+<h3>Invitation</h3>
+<hr />
+
+<div class="row">
+    <div class="col-sm-12">
+        @if (_joinSuccessful)
+        {
+            <h5>C'est fait.</h5>
+            <p class="text-muted">
+                Vous avez rejoint l'organisation.
+            </p>
+        }
+        else if (string.IsNullOrWhiteSpace(InviteId))
+        {
+            <div>
+                <strong class="text-danger">L'ID de l'invitation manque dans la requête.</strong>
+            </div>
+        }
+        else
+        {
+            <div>
+                <div>
+                    <strong class="text-danger">ATTENTION : </strong>
+                    <p class="text-danger">Vous allez quitter votre organisation actuelle et perdre l'accès à ses agents, sauf si quelqu'un vous y réinvite.</p>
+                    <p>Quitter votre organisation actuelle pour rejoindre celle-ci ?</p>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary me-3" onclick="location.assign(location.origin)">Annuler</button>
+                    <button type="button" class="btn btn-danger" @onclick="Confirm">Confirmer</button>
+                </div>
+            </div>
+        }
+
+    </div>
+</div>
+
+@code {
+    private bool _joinSuccessful;
+
+    [Parameter]
+    public string? InviteId { get; init; }
+
+    private async Task Confirm()
+    {
+        if (string.IsNullOrWhiteSpace(InviteId))
+        {
+            Toasts.ShowToast2("L'ID de l'invitation manque dans la requête.", ToastType.Error);
+            return;
+        }
+
+        var state = await AuthProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity is not { IsAuthenticated: true } identity)
+        {
+            Toasts.ShowToast2("Connectez-vous pour rejoindre une organisation.", ToastType.Error);
+            return;
+        }
+
+        var result = await DataService.JoinViaInvitation($"{identity.Name}", InviteId);
+        if (!result.IsSuccess)
+        {
+            Toasts.ShowToast2(result.Reason, ToastType.Error);
+            return;
+        }
+
+        _joinSuccessful = true;
+    }
+}

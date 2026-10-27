@@ -1,0 +1,288 @@
+@page
+@using Remotely.Server.Pages
+@model ViewerModel
+
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=0.9, user-scalable=no" />
+    <title>@(Model.PageTitle)</title>
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="description" content="@(Model.PageDescription)" />
+    <link href="/manifest.json" rel="manifest" />
+    <link rel="icon" href="@(Model.FaviconUrl)" />
+    <link href="/css/remote-control.css" rel="stylesheet" asp-append-version="true" />
+
+    @if (!string.IsNullOrWhiteSpace(Model.ThemeUrl))
+    {
+        <link href="@(Model.ThemeUrl)" rel="stylesheet" asp-append-version="true" />
+    }
+
+    <link href="/lib/fontawesome/css/all.min.css" rel="stylesheet" />
+    <link href="/lib/fontawesome/css/brands.min.css" rel="stylesheet" />
+
+    <environment include="Development">
+        <script src="/lib/microsoft-signalr/signalr.js"></script>
+        <script src="/lib/microsoft/signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack.js"></script>
+        <script src="/lib/msgpack/dist.es5+umd/msgpack.js"></script>
+    </environment>
+    <environment exclude="Development">
+        <script src="/lib/microsoft-signalr/signalr.min.js"></script>
+        <script src="/lib/microsoft/signalr-protocol-msgpack/dist/browser/signalr-protocol-msgpack.min.js"></script>
+        <script src="/lib/msgpack/dist.es5+umd/msgpack.min.js"></script>
+    </environment>
+</head>
+<body>
+    <div id="backgroundLayers" class="background-layers">
+        <div class="background-layer-1"></div>
+        <div class="background-layer-2"></div>
+        <div class="background-layer-3"></div>
+    </div>
+
+    <div id="screenSelectMenu" class="popup-menu">
+    </div>
+
+    <div id="clipboardTransferMenu" class="popup-menu">
+        <button id="typeClipboardButton">Taper le presse-papiers</button>
+    </div>
+
+    <div id="fileTransferMenu" class="popup-menu">
+        <button id="fileUploadButton">Envoyer un fichier</button>
+        <button id="fileDownloadButton">Télécharger un fichier</button>
+    </div>
+
+    <div id="windowsSessionMenu" class="popup-menu">
+        <div class="text-center" style="margin-bottom: 5px;">
+            Changer de session Windows
+        </div>
+        <select id="windowsSessionSelect"
+                title="Passer sur une autre session Windows.">
+        </select>
+    </div>
+
+    <div id="qualityModeMenu" class="popup-menu">
+        <div class="text-center" style="margin-bottom: 5px;">
+            Qualité d'image
+        </div>
+        <button id="qualityAutoButton" class="quality-mode-option toggled"
+                title="Adapte la qualité automatiquement selon la connexion.">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            Auto (adaptative)
+        </button>
+        <button id="qualityPerformanceButton" class="quality-mode-option"
+                title="Qualité réduite : moins de bande passante, plus fluide sur une connexion lente.">
+            <i class="fas fa-gauge-high"></i>
+            Performance (qualité réduite)
+        </button>
+        <button id="qualityHighButton" class="quality-mode-option"
+                title="Qualité maximale, consomme plus de bande passante. Idéal en réseau local.">
+            <i class="fas fa-star"></i>
+            Qualité (plus de bande passante)
+        </button>
+    </div>
+
+    <div id="extrasMenu" class="popup-menu">
+
+        <button id="audioButton"
+                title="Windows seulement : transmet le son du poste au navigateur.">
+            <i class="fas fa-volume-up"></i>
+            Audio
+        </button>
+
+        <button id="fileTransferButton"
+                title="Transférer des fichiers vers le poste.">
+            <i class="fas fa-file-upload"></i>
+            Fichiers
+        </button>
+
+        <button id="inviteButton"
+                title="Copier un lien qui permet à une autre personne de voir l'écran.">
+            <i class="fas fa-user-plus"></i>
+            Inviter
+        </button>
+
+        <button id="metricsButton"
+            title="Afficher ou masquer les mesures de la session.">
+            <i class="fas fa-gauge"></i>
+            Mesures
+        </button>
+
+        <button id="qualityModeButton"
+                title="Changer le mode de qualité d'image.">
+            <i class="fas fa-sliders"></i>
+            Qualité : <span id="qualityModeLabel">Auto</span>
+        </button>
+    </div>
+
+    <div id="metricsFrame" class="d-none">
+        <div>
+            Mbit/s :
+        </div>
+        <div id="mbpsDiv">
+        </div>
+        <div>
+            FPS:
+        </div>
+        <div id="fpsDiv">
+        </div>
+        <div>
+            Latence :
+        </div>
+        <div id="latencyDiv">
+        </div>
+        <div>
+            GPU:
+        </div>
+        <div id="gpuAcceleratedDiv">
+        </div>
+    </div>
+
+    <div class="connection-box-wrapper">
+        <div class="text-center">
+            <h2 id="connectHeader" class="connect-header" style="display: none">
+                Se connecter à un poste
+            </h2>
+        </div>
+        <div id="connectBox" class="center-connection-box" style="display: none">
+            <form id="connectForm">
+                <div class="form-block">
+                    <label class="input-label">Votre nom (affiché au client)</label>
+                    <input id="nameInput" type="text" required value="@Model.UserDisplayName" />
+                </div>
+                <div class="form-block">
+                    <label class="input-label">ID de session</label>
+                    <input id="sessionIDInput" required type="text" pattern="[0-9 ]+" />
+                </div>
+                <div>
+                    <button id="connectButton" disabled>
+                        Se connecter
+                    </button>
+                </div>
+
+            </form>
+        </div>
+
+        <div id="statusMessage" class="status-message">
+        </div>
+
+    </div>
+
+    <div id="workAreaGrid" style="display: none;">
+        <div>
+            <div id="menuFrame">
+                <div class="menu-column menu-column-left">
+
+                </div>
+                <div class="menu-column menu-column-middle">
+                    <button id="changeScreenButton"
+                            title="Changer d'écran sur un poste multi-écrans.">
+                        <i class="fas fa-desktop"></i>
+                        Écrans
+                    </button>
+
+                    <button id="viewOnlyButton"
+                            title="Activé : aucune commande ni saisie n'est envoyée au poste.">
+                        <i class="fas fa-eye"></i>
+                        Affichage seul
+                    </button>
+
+                    <button id="clipboardTransferButton"
+                            title="Taper le texte du presse-papiers sur le poste.">
+                        <i class="fas fa-clipboard"></i>
+                        Presse-papiers
+                    </button>
+
+                    <button id="blockInputButton"
+                            title="Empêcher l'utilisateur du poste d'utiliser clavier et souris.">
+                        <i class="fas fa-mouse"></i>
+                        Bloquer clavier et souris
+                    </button>
+
+                    <button id="ctrlAltDelButton"
+                            title="Envoyer Ctrl+Alt+Suppr au poste (agent lancé en SYSTEM)."
+                            class="d-none">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Ctrl+Alt+Suppr
+                    </button>
+                </div>
+
+                <div class="menu-column menu-column-right">
+                    <button id="disconnectButton"
+                            title="Quitter la session.">
+                        x
+                    </button>
+
+                    <button id="extrasMenuButton">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
+
+                    <button id="windowsSessionMenuButton">
+                        <i class="fa-brands fa-windows"></i>
+                    </button>
+
+                    <button id="fullScreenButton" title="Plein écran.">
+                        <i class="fas fa-window-maximize"></i>
+                    </button>
+
+                    <button id="fitToScreenButton"
+                            class="toggled"
+                            title="Activé : l'image s'adapte à la fenêtre.">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <button id="menuButton">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+
+                <button 
+                    id="keyboardButton" 
+                    title="Afficher le clavier tactile."
+                    class="d-none">
+                    <i class="fas fa-keyboard align-middle"></i>
+                </button>
+
+            </div>
+        </div>
+        <div>
+            <div id="screenViewerWrapper">
+                <canvas id="screenViewer" class="fit"></canvas>
+                <input id="fileTransferInput" hidden="hidden" type="file" multiple />
+                <input id="touchKeyboardInput" type="text" autocomplete="off" autocapitalize="off"  />
+            </div>
+        </div>
+
+    </div>
+
+    <div id="toastsWrapper">
+    </div>
+
+
+    <div id="fileTransferDiv" hidden="hidden">
+        <span id="fileTransferNameSpan" class="me-1 font-weight-bold" style="vertical-align: middle;"></span>
+        <progress id="fileTransferProgress"></progress>
+    </div>
+
+    <footer>
+        <div class="copyright-text">
+            &copy; @(DateTime.Now.Year) - Immense Networks
+        </div>
+    </footer>
+
+    <script src="/src/App.js" type="module"></script>
+    <script>
+        window.addEventListener("load", () => {
+            ViewerApp.Init();
+        })
+    </script>
+</body>
+</html>

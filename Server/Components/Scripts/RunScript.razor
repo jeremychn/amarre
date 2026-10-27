@@ -1,0 +1,67 @@
+﻿@inherits AuthComponentBase
+@attribute [Authorize]
+
+<div class="main-grid mt-3 auto-height">
+    <div style="grid-column: span 3">
+        <button class="btn btn-primary align-middle me-4" @onclick="ExecuteScript">Exécuter</button>
+        <input type="checkbox" class="me-1 align-middle" @bind="_runOnNextConnect" />
+        <span class="align-middle">Hors ligne : exécuter dès la prochaine connexion</span>
+    </div>
+    <div class="column-wrapper h-100 pb-3">
+        <div>
+            <h5>Scripts enregistrés</h5>
+            <div>
+                <input type="checkbox" @bind="ParentPage.ShowOnlyMyScripts" />
+                <span class="align-top">Seulement les miens</span>
+            </div>
+            <div>
+                <input type="search" class="form-control form-control-sm my-1" placeholder="Rechercher un script"
+                       @bind="ParentPage.SearchText" @bind:event="oninput" />
+            </div>
+        </div>
+        <TreeView DataSource="ParentPage.TreeNodes"
+                  ItemTypeSelector="x => x.ItemType"
+                  ItemHeaderSelector="x => x.Name"
+                  ItemSelected="ScriptSelected"
+                  ChildItemSelector="x => x.ChildItems"
+                  ItemIconCssSelector="ParentPage.GetItemIconCss"
+                  KeySelector="x => x.Id"
+                  WrapperStyle="border: 1px solid gray; padding: .5em; height: 100%; border-radius: 5px;"
+                  T="ScriptTreeNode" />
+    </div>
+    <div class="column-wrapper h-100 pb-3">
+        <h5>Groupes</h5>
+        <div class="item-list-border h-100">
+            @foreach (var deviceGroup in _deviceGroups)
+            {
+                <div @key="@deviceGroup.ID">
+                    <input class="me-1" type="checkbox" 
+                           checked="@(_selectedDeviceGroups.Contains(deviceGroup.ID))"
+                           @onchange="ev => DeviceGroupSelectedChanged(ev, deviceGroup)" />
+
+                    <span class="align-top">@deviceGroup.Name</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="column-wrapper h-100 pb-3">
+        <div>
+            <h5>Appareils</h5>
+            <input type="search" class="form-control form-control-sm my-1" placeholder="Rechercher un poste"
+                   @bind="_deviceSearch" @bind:event="oninput" />
+        </div>
+        <div class="item-list-border h-100">
+            @foreach (var device in FilteredDevices)
+            {
+                <div @key="@device.ID">
+                    <input class="me-1" type="checkbox"
+                           checked="@(_selectedDevices.Contains(device.ID))"
+                           @onchange="ev => DeviceSelectedChanged(ev, device)" />
+
+                    <span class="align-top">@device.DeviceName</span>
+                </div>
+            }
+        </div>
+    </div>
+</div>

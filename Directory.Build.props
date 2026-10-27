@@ -1,0 +1,15 @@
+<Project>
+    <PropertyGroup>
+        <Nullable>enable</Nullable>
+      <RootNamespace>Remotely.$(MSBuildProjectName.Replace(" ", "_"))</RootNamespace>
+    </PropertyGroup>
+    <!-- Dépendances transitives vulnérables (avis du 13/10/2026, corrigés en 10.0.13), forcées pour tous les projets.
+         À retirer quand les paquets qui les amènent les tirent en version corrigée. -->
+    <ItemGroup>
+        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.*" />
+        <!-- Fourni par le framework ASP.NET Core côté serveur (référence explicite refusée : NU1510). -->
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.*"
+                          Condition="'$(UsingMicrosoftNETSdkWeb)' != 'true' and '$(MSBuildProjectName)' != 'Server.Tests'" />
+    </ItemGroup>
+</Project>
+   

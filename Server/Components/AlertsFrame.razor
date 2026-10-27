@@ -1,0 +1,104 @@
+﻿@inherits AuthComponentBase
+@attribute [Authorize]
+@inject IDataService DataService 
+@inject IModalService ModalService 
+
+<button id="alertsButton" class="btn btn-info" @onclick="ToggleOpen">
+    <span class="oi oi-bell"></span>
+    <span id="alertsCount">
+        @_alerts.Count
+    </span>
+</button>
+
+<div id="alertsFrame" class="bg-secondary @FrameClass">
+    <div class="text-end">
+        <button id="clearAllAlertsButton" class="btn btn-secondary mt-2 me-2 align-top" @onclick="ClearAllAlerts">
+            Clear All
+        </button>
+        <button id="closeAlertsFrameButton" class="btn btn-secondary btn-sm mt-2 me-2 align-top" @onclick="ToggleOpen">
+            <span class="oi oi-x pointer"></span>
+        </button>
+    </div>
+
+    <div id="alertsBody" class="mt-3">
+        @foreach (var alert in _alerts)
+        {
+            <div @key="alert.ID" id="@alert.ID" class="card border-primary mb-3 me-2 ms-2">
+                <div class="card-header">@alert.CreatedOn.ToString()</div>
+                <div class="card-body">
+                    <h6 class="card-title">@alert.Device?.DeviceName</h6>
+
+                    <p class="card-text">@alert.Message</p>
+
+                    @if (!string.IsNullOrWhiteSpace(alert.Details))
+                    {
+                        <div class="small">
+                            <button class="btn btn-link" @onclick="() => ShowAlertDetails(alert)">
+                                View Details
+                            </button>
+                        </div>
+                    }
+
+                    <div class="text-end">
+                        <button alert="@alert.ID"
+                                class="btn btn-sm btn-secondary alert-dismiss-button"
+                                type="button"
+                                @onclick="()=> { _ = ClearAlert(alert); }">
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private readonly List<Alert> _alerts = new();
+    private bool _isOpen;
+
+    private string? FrameClass => _isOpen ? "open" : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        EnsureUserSet();
+        GetAlerts();
+    }
+
+    private async Task ClearAlert(Alert alert)
+    {
+        await DataService.DeleteAlert(alert);
+        _alerts.Remove(alert);
+    }
+
+    private async Task ClearAllAlerts()
+    {
+        EnsureUserSet();
+        await DataService.DeleteAllAlerts(User.OrganizationID, User.UserName);
+        _alerts.Clear();
+    }
+
+    private void GetAlerts()
+    {
+        EnsureUserSet();
+        _alerts.Clear();
+        var alerts = DataService.GetAlerts(User.Id);
+        if (alerts.Any())
+        {
+            _alerts.AddRange(alerts);
+        }
+    }
+
+    private void ShowAlertDetails(Alert alert)
+    {
+        var body = alert.Details?.Split('\n') ?? Array.Empty<string>();
+        ModalService.ShowModal($"Détail de l'alerte pour {alert.Device?.DeviceName}", body);
+    }
+
+    private void ToggleOpen()
+    {
+        _isOpen = !_isOpen;
+    }
+}

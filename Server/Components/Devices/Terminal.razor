@@ -1,0 +1,64 @@
+﻿@inherits AuthComponentBase
+
+<div class="terminal-frame @_terminalOpenClass">
+    <div class="terminal-header">
+        <div>
+            <button class="btn btn-secondary terminal-button ms-4" @onclick="ToggleTerminalOpen">
+                <i class="oi oi-terminal"></i>
+                <span class="ms-2">Terminal</span>
+            </button>
+        </div>
+        <div class="text-end">
+            <button class="btn btn-secondary terminal-button me-4" @onclick="ShowQuickScripts">
+                <i class="oi oi-script"></i>
+                <span class="ms-2">Scripts rapides</span>
+            </button>
+        </div>
+
+    </div>
+
+    <div class="terminal-body border border-secondary bg-dark">
+        <div @ref="_terminalWindow" class="terminal-window px-2 py-1">
+            
+            @foreach (var line in TerminalStore.TerminalLines)
+            {
+                <div @key="line.Id" class="ms-1 terminal-line @line.ClassName" title="@line.Title">
+                    @line.Text
+                </div>
+            }
+        </div>
+        <div>
+            <div class="terminal-input-area px-2 mb-2">
+                <div>
+                    <button class="btn btn-sm btn-secondary me-1"
+                            style="align-self: center" 
+                            @onclick="ShowTerminalHelp">
+                        <i class="oi oi-question-mark"></i>
+                    </button>
+
+                </div>
+                <div>
+                    <select @bind="_shell" class="form-control">
+                        @foreach (var shell in Enum.GetValues(typeof(ScriptingShell)))
+                        {
+                            <option @key="shell" value="@shell">@shell</option>
+                        }
+                    </select>
+
+                </div>
+                <div>
+                    <input @ref="_terminalInput" 
+                           class="form-control" 
+                           placeholder="Saisir une commande"
+                           spellcheck="false"
+                           autocomplete="off"
+                           @bind="InputText" 
+                           @bind:event="oninput" 
+                           @onkeypress="EvaluateInputKeypress"
+                           @onkeydown="EvaluateKeyDown" />
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>

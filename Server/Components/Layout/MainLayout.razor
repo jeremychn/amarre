@@ -1,0 +1,53 @@
+﻿@using Remotely.Server.Components 
+@using Remotely.Server.Auth 
+@inherits LayoutComponentBase
+@inject NavigationManager NavMan
+
+<AuthorizeView Policy="@PolicyNames.TwoFactorRequired">
+    <Authorized>
+            <div class="page">
+                <div class="sidebar">
+                    <NavMenu />
+                </div>
+
+                <div class="main">
+                    <div class="content px-4">
+                        @Body
+                    </div>
+                </div>
+            </div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="container mt-5">
+            <h3>Double authentification obligatoire</h3>
+
+            <hr />
+            <div class="row">
+                <div class="col-sm-12">
+                    <p>La double authentification est obligatoire. Configurez votre application d'authentification avec le bouton ci-dessous.</p>
+                    <p>
+                        <button class="btn btn-primary" @onclick="NavigateToTwoFactor">Activer la double authentification</button>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </NotAuthorized>
+</AuthorizeView>
+
+<div id="blazor-error-ui">
+    Une erreur inattendue s'est produite.
+    <a href="" class="reload">Recharger</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+<ToastHarness />
+<LoaderHarness />
+<ModalHarness />
+
+@code {
+    private void NavigateToTwoFactor()
+    {
+        NavMan.NavigateTo("/Account/Manage/TwoFactorAuthentication", true);
+    }
+}

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Desktop.Linux": {
+      "commandName": "Project",
+      "commandLineArgs": "-m Attended -h https://localhost:5001"
+    }
+  }
+}

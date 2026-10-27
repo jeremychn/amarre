@@ -1,0 +1,62 @@
+﻿@inject IModalService ModalService
+@inject IJsInterop JsInterop
+@inject IJSRuntime JsRuntime
+
+<div @ref="_modalRef" id="defaultModal" class="modal fade" style="background-color: rgba(0,0,0,0.35)">
+    <div class="modal-dialog modal-dialog-scrollable" role="document" @onclick:stopPropagation>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@ModalService.Title</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" >
+                @if (ModalService.RenderBody is not null)
+                {
+                    @ModalService.RenderBody
+                }
+                else
+                {
+                    @foreach (var line in ModalService.Body ?? Array.Empty<string>())
+                    {
+                        <p>
+                            @line
+                        </p>
+                    }
+                }
+
+            </div>
+            <div class="modal-footer">
+                @foreach (var button in ModalService.Buttons)
+                {
+                    <button @key="button" type="button" data-bs-dismiss="modal" class="@button.Class" @onclick="() => ExecuteButtonAction(button.OnClick)">@button.Text</button>
+                }
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private IJSObjectReference? _module;
+    private ElementReference _modalRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JsRuntime.InvokeAsync<IJSObjectReference>("import", "./Components/ModalHarness.razor.js");
+            ModalService.ModalShown += async (sender, args) =>
+            {
+                await _module.InvokeVoidAsync("showModal", _modalRef);
+                await InvokeAsync(StateHasChanged);
+            };
+        }
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private Task ExecuteButtonAction(Action onclick)
+    {
+        onclick.Invoke();
+        return Task.CompletedTask;
+    }
+}

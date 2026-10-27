@@ -1,0 +1,157 @@
+# Vérifie que tout compile sans warning ni paquet vulnérable à chaque pull request (rien n'est publié).
+# Appelé aussi par release.yml à chaque push sur main et avant toute publication.
+#   - serveur + tests : Linux
+#   - viewer : les .js commités doivent correspondre aux .ts (tsc 5.6.2)
+#   - agents et applis de prise de main : Windows (Desktop.Win ne compile que sous Windows)
+#   - image serveur : Dockerfile sans avertissement, image construite, aucune faille connue
+#     corrigeable (Grype, sévérité >= medium), même contrôle que les autres dépôts Docker
+name: Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+  # Chaque lundi : un nouvel avis de sécurité (NuGet, image) fait échouer ce contrôle avant la prochaine release.
+  schedule:
+    - cron: '17 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  serveur:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build serveur
+        run: dotnet build Server/Server.csproj -c Release -warnaserror -p:TypeScriptCompileBlocked=true
+
+      - name: Tests
+        run: |
+          dotnet test Tests/Server.Tests/Server.Tests.csproj -c Release -warnaserror -p:TypeScriptCompileBlocked=true
+          dotnet test Tests/Shared.Tests/Shared.Tests.csproj -c Release -warnaserror
+
+      # Démarre vraiment le serveur (migration SQLite comprise) puis crée un compte et se connecte.
+      - name: Démarrage du serveur et connexion
+        run: |
+          dotnet publish Server/Server.csproj -c Release -o /tmp/srv -p:TypeScriptCompileBlocked=true
+          cd /tmp/srv
+          ASPNETCORE_HTTP_PORTS=5000 dotnet Remotely_Server.dll > /tmp/srv.log 2>&1 &
+          for i in $(seq 30); do curl -sf http://localhost:5000/api/healthcheck > /dev/null && break; sleep 2; done
+          bash $GITHUB_WORKSPACE/Utilities/test-login.sh && exit 0
+          cat /tmp/srv.log
+          grep -E 'Exception|error|fail' /tmp/srv.log | head -5 | while read -r l; do echo "::error::$l"; done
+          exit 1
+
+      - name: Viewer TypeScript à jour
+        run: |
+          npx -y -p typescript@5.6.2 tsc -p Server/wwwroot/src/tsconfig.json
+          git diff --exit-code -- Server/wwwroot/src || { echo "::error::Les .js du viewer ne correspondent pas aux .ts : recompiler avec tsc 5.6.2 et commiter."; exit 1; }
+
+  agents:
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build agent et applis de prise de main
+        shell: pwsh
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          dotnet build .\Agent -c Release -warnaserror
+          dotnet build .\Desktop.Win -c Release -warnaserror
+          dotnet build .\Desktop.Linux -c Release -warnaserror
+          dotnet publish .\Desktop.Linux -c Release -warnaserror -p:PublishProfile=packaged-linux-arm64 -o .\out\linux-arm64
+
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # Le Dockerfile copie Server/bin/publish : même publish que la release
+      - name: Publish serveur
+        run: dotnet publish Server/Server.csproj -c Release -o Server/bin/publish -p:TypeScriptCompileBlocked=true
+
+      # Chaque avertissement devient une annotation (visible sans ouvrir le log)
+      - name: Dockerfile sans avertissement
+        env:
+          FILE: Server/Dockerfile
+          CTX: .
+        run: |
+          out=$(docker buildx build --call check,format=json -f "$FILE" "$CTX") || true
+          echo "$out"
+          echo "$out" | jq -r '.warnings[]? | "::error file=\(env.FILE),line=\(.location.ranges[0].start.line // 1),title=\(.ruleName)::\(.detail)"'
+          test "$(echo "$out" | jq '.warnings | length')" = 0
+
+      - name: Construire
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Server/Dockerfile
+          load: true
+          tags: scan/amarre
+
+      # Fin du log de build en annotation (lisible sans ouvrir le log)
+      - name: Détail de l'échec du build
+        if: failure() && steps.build.outcome == 'failure'
+        env:
+          FILE: Server/Dockerfile
+          CTX: .
+        run: |
+          args=()
+          while IFS= read -r l; do if [ -n "$l" ]; then args+=(--build-arg "$l"); fi; done <<< "${ARGS:-}"
+          docker buildx build --progress=plain "${args[@]}" -f "$FILE" "$CTX" > build.log 2>&1 || true
+          msg=$(grep -v -E '^#[0-9]+ (sha256|extracting|DONE|CACHED)' build.log | tail -n 30 \
+                | sed -e 's/%/%25/g' -e 's/\r//g' | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=Build::$msg"
+
+      - name: Analyser les failles
+        id: scan
+        uses: anchore/scan-action@v7
+        with:
+          image: scan/amarre
+          fail-build: false
+          severity-cutoff: medium
+          only-fixed: true
+          output-format: json
+
+      # Faille corrigeable de sévérité moyenne ou plus = échec. Détail dans le
+      # résumé du job et en annotations (une par paquet).
+      - name: Aucune faille connue
+        env:
+          REPORT: ${{ steps.scan.outputs.json }}
+        run: |
+          jq -r '[.matches[]
+                  | select(.vulnerability.fix.state == "fixed")
+                  # correction publiée seulement en pré-version (rc, beta…) : pas encore corrigeable
+                  | select(any(.vulnerability.fix.versions[]; test("[0-9](rc|a|b|alpha|beta|dev)[0-9]+$") | not))
+                  | select(.vulnerability.severity | IN("Medium","High","Critical"))]
+                 | group_by(.artifact.name)
+                 | map("\(.[0].artifact.name) \(.[0].artifact.version) (\(.[0].artifact.type), \(.[0].artifact.locations[0].path)) -> \(.[0].vulnerability.fix.versions | join(",")) : \(map(.vulnerability.id + " " + .vulnerability.severity) | unique | join(", "))")
+                 | .[]' "$REPORT" > failles.txt
+          { echo "### Failles corrigeables (amarre)"; echo; sed 's/^/- /' failles.txt; } >> "$GITHUB_STEP_SUMMARY"
+          # Transparence : ce qui n'a de correction qu'en pré-version, sans bloquer
+          jq -r '[.matches[] | select(.vulnerability.fix.state == "fixed")
+                  | select(all(.vulnerability.fix.versions[]; test("[0-9](rc|a|b|alpha|beta|dev)[0-9]+$")))]
+                 | group_by(.artifact.name) | .[]
+                 | "- \(.[0].artifact.name) \(.[0].artifact.version) : \(map(.vulnerability.id) | unique | join(", ")) (correction en pré-version seulement)"' "$REPORT" \
+            > suivi.txt
+          { echo; echo "### Suivi, non bloquant"; echo; cat suivi.txt; } >> "$GITHUB_STEP_SUMMARY"
+          head -n 9 suivi.txt | sed 's/^- /::notice title=Suivi (non bloquant)::/'
+          head -n 9 failles.txt | sed 's/^/::error title=Faille::/'
+          n=$(wc -l < failles.txt)
+          if [ "$n" -gt 9 ]; then echo "::error title=Faille::... et $((n - 9)) autres paquets (résumé du job)"; fi
+          test "$n" -eq 0

@@ -1,0 +1,99 @@
+﻿@attribute [Authorize]
+@inherits AuthComponentBase
+
+<h3>Appareils</h3>
+
+<div @onclick="ClearSelectedCard">
+    <div class="device-toolbar">
+        <input class="form-control toolbar-search"
+               type="search"
+               placeholder="Rechercher : nom, utilisateur, alias, tags…"
+               @bind="_filter"
+               @bind:event="oninput" />
+
+        <div class="input-group input-group-sm toolbar-item">
+            <span class="input-group-text">Groupe</span>
+            <select class="form-select" @bind="_selectedGroupId">
+                <option value="@_deviceGroupAll">Tous</option>
+                <option value="@_deviceGroupNone">Aucun</option>
+                @foreach (var group in _deviceGroups)
+                {
+                    <option @key="group.ID" value="@group.ID">@group.Name</option>
+                }
+            </select>
+            <button class="btn btn-secondary" title="Réveiller les appareils du groupe" @onclick="WakeDevices">
+                <span class="oi oi-power-standby"></span>
+            </button>
+        </div>
+
+        <div class="input-group input-group-sm toolbar-item">
+            <span class="input-group-text">Tri</span>
+            <select class="form-select" @bind="_selectedSortProperty">
+                <option value=""></option>
+                @foreach (var prop in _sortableProperties)
+                {
+                    <option value="@prop.Name">@GetDisplayName(prop)</option>
+                }
+            </select>
+            <button class="btn btn-secondary" title="Sens du tri" @onclick="ToggleSortDirection">
+                <span class="oi @GetSortIcon()"></span>
+            </button>
+        </div>
+
+        <div class="form-check toolbar-check">
+            <input id="onlineOnlyCheckbox" type="checkbox" class="form-check-input" @bind="_hideOfflineDevices" />
+            <label class="form-check-label" for="onlineOnlyCheckbox">En ligne seulement</label>
+        </div>
+
+        <button class="btn btn-sm btn-secondary" @onclick="SelectAllCards">Tout sélectionner</button>
+        <button class="btn btn-sm btn-primary" title="Actualiser" @onclick="HandleRefreshClicked">
+            <span class="oi oi-reload"></span>
+            <span class="ms-1">Actualiser</span>
+        </button>
+    </div>
+
+    <div class="device-counters">
+        <button class="counter counter-online @CounterClass(QuickFilter.Online)" @onclick="() => ToggleQuickFilter(QuickFilter.Online)" @onclick:stopPropagation>
+            <span class="dot"></span> En ligne <strong>@_allDevices.Count(x => x.IsOnline)</strong>
+        </button>
+        <button class="counter counter-outdated @CounterClass(QuickFilter.Outdated)" @onclick="() => ToggleQuickFilter(QuickFilter.Outdated)" @onclick:stopPropagation>
+            <span class="dot"></span> Agent obsolète <strong>@_allDevices.Count(IsOutdated)</strong>
+        </button>
+        <button class="counter counter-offline @CounterClass(QuickFilter.Offline)" @onclick="() => ToggleQuickFilter(QuickFilter.Offline)" @onclick:stopPropagation>
+            <span class="dot"></span> Hors ligne <strong>@_allDevices.Count(x => !x.IsOnline)</strong>
+        </button>
+        <button class="counter counter-disk @CounterClass(QuickFilter.DiskFull)" @onclick="() => ToggleQuickFilter(QuickFilter.DiskFull)" @onclick:stopPropagation>
+            <span class="dot"></span> Disque ≥ 75 % <strong>@_allDevices.Count(IsDiskFull)</strong>
+        </button>
+    </div>
+
+    <div id="deviceListDiv">
+        @foreach (var device in DisplayedDevices)
+        {
+            <CascadingValue Value="this">
+                <DeviceCard @key="device.ID" Device="device" />
+            </CascadingValue>
+        }
+    </div>
+
+    <div class="device-pager">
+        <button class="btn btn-sm btn-secondary" title="Page précédente" @onclick="PageDown">
+            <i class="oi oi-chevron-left"></i>
+        </button>
+        <span>Page</span>
+        <input class="form-control form-control-sm pager-input" pattern="[0-9]*" @bind="_currentPage" @bind:event="oninput" />
+        <span>sur @TotalPages</span>
+        <button class="btn btn-sm btn-secondary" title="Page suivante" @onclick="PageUp">
+            <i class="oi oi-chevron-right"></i>
+        </button>
+        <select class="form-select form-select-sm pager-size" @bind="_devicesPerPage">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+        </select>
+        <span>par page</span>
+    </div>
+
+    <Terminal />
+</div>

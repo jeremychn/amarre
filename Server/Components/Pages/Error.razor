@@ -1,0 +1,37 @@
+﻿@page "/Error"
+@using System.Diagnostics
+@using Microsoft.AspNetCore.Http
+
+<PageTitle>Erreur</PageTitle>
+
+<h1 class="text-danger">Erreur.</h1>
+<h2 class="text-danger">Une erreur s'est produite pendant le traitement de la requête.</h2>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>ID de la requête :</strong> <code>@RequestId</code>
+    </p>
+}
+
+<h3>Mode développement</h3>
+<p>
+    L'environnement <strong>Development</strong> affiche le détail de l'erreur.
+</p>
+<p>
+    <strong>Ne l'activez pas sur un serveur en production.</strong>
+    Il peut exposer des informations sensibles aux utilisateurs.
+    Pour déboguer en local, définissez la variable d'environnement <strong>ASPNETCORE_ENVIRONMENT</strong> à <strong>Development</strong>
+    puis redémarrez l'application.
+</p>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetLatestRuntimePatch>true</TargetLatestRuntimePatch>
+    <AssemblyName></AssemblyName>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MessagePack" Version="2.5.303" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.*" />
+    <PackageReference Include="Microsoft.Extensions.Identity.Stores" Version="10.0.*" />
+    <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Entities\ScriptResult.cs">
+      <LastGenOutput>ScriptResult.cs.d.ts</LastGenOutput>
+      <Generator>DtsGenerator</Generator>
+    </Compile>
+    <Compile Update="Entities\Device.cs">
+      <Generator></Generator>
+    </Compile>
+    <Compile Update="Models\RemotelyUserOptions.cs">
+      <LastGenOutput>RemotelyUserOptions.cs.d.ts</LastGenOutput>
+      <Generator>DtsGenerator</Generator>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Models\RemotelyUserOptions.cs.d.ts">
+      <DependentUpon>RemotelyUserOptions.cs</DependentUpon>
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+    </None>
+  </ItemGroup>
+
+</Project>

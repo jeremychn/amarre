@@ -1,0 +1,38 @@
+﻿@attribute [Authorize]
+@inherits AuthComponentBase
+
+@inject NavigationManager NavManager
+@inject IDataService DataService
+@inject SignInManager<RemotelyUser> SignInManager
+
+@if (!string.IsNullOrWhiteSpace(_settings?.MessageOfTheDay))
+{
+    <div class="me-5">
+        <AlertBanner Message="@_settings?.MessageOfTheDay" StatusClass="info" />
+    </div>
+}
+
+<AlertsFrame />
+<DevicesFrame />
+<ChatFrame />
+
+@code {
+    private SettingsModel? _settings;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _settings = await DataService.GetSettings();
+        await base.OnInitializedAsync();
+
+        var isAuthenticated = await AuthService.IsAuthenticated();
+        var userResult = await AuthService.GetUser();
+        // This handles a weird edge case when the user has been
+        // deleted but still has an authentication cookie in their
+        // browser.
+        if (isAuthenticated == true && !userResult.IsSuccess)
+        {
+            await SignInManager.SignOutAsync();
+            NavManager.NavigateTo("/");
+        }
+    }
+}

@@ -1,0 +1,73 @@
+﻿@page "/Account/ResendEmailConfirmation"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+@using System.Text.Encodings.Web
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.WebUtilities
+@using Remotely.Server.Data
+
+@inject UserManager<RemotelyUser> UserManager
+@inject IEmailSender<RemotelyUser> EmailSender
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Renvoyer l'e-mail de confirmation</PageTitle>
+
+<h1>Renvoyer l'e-mail de confirmation</h1>
+<h2>Saisissez votre adresse e-mail.</h2>
+<hr />
+<StatusMessage Message="@message" />
+<div class="row">
+    <div class="col-md-4">
+        <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
+                <label for="email" class="form-label">Adresse e-mail</label>
+                <ValidationMessage For="() => Input.Email" class="text-danger" />
+            </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Renvoyer</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private string? message;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    protected override void OnInitialized()
+    {
+        Input ??= new();
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        var user = await UserManager.FindByEmailAsync(Input.Email!);
+        if (user is null)
+        {
+            message = "E-mail de vérification envoyé. Consultez votre messagerie.";
+            return;
+        }
+
+        var userId = await UserManager.GetUserIdAsync(user);
+        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
+            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+
+        message = "E-mail de vérification envoyé. Consultez votre messagerie.";
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Ce champ est obligatoire.")]
+        [EmailAddress(ErrorMessage = "Adresse e-mail invalide.")]
+        public string Email { get; set; } = "";
+    }
+}

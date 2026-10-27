@@ -1,0 +1,15 @@
+﻿.list-box {
+    padding: 1em;
+    border: 1px solid var(--rf-border);
+    height: 8em;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    white-space: nowrap;
+    border-radius: .5rem;
+}
+
+#saveButton {
+    position: fixed;
+    right: 40px;
+    bottom: 20px;
+}
