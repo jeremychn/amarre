@@ -38,6 +38,7 @@ Ce guide couvre tout le cycle : installation du serveur, déploiement des agents
   - le bouton du bandeau (« taper le presse-papier ») reste disponible en secours.
 - **Clavier AZERTY** : les caractères AltGr (`@ # { } [ ] | \ €`…) et le pavé numérique sont tapés en Unicode sur le poste distant (correctif viewer, v1.5 et v1.6).
 - Agents publiés automatiquement pour **Windows x64 et x86, Linux x64** (prise en main, en français) et **macOS x64/arm64** (agent seul : scripts et terminal, Remotely n'a pas d'appli de prise en main sur Mac).
+- **Noms hérités de Remotely** : le conteneur `remotely`, les dossiers `/srv/remotely`, la base `Remotely.db`, les variables `Remotely_…`, le service et les fichiers des agents (`Remotely_Service`, `Remotely-Win-x64.zip`…) gardent leur nom. Les renommer casserait les installations existantes et la mise à jour automatique des agents.
 
 ## 2. Prérequis
 

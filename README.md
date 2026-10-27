@@ -37,10 +37,22 @@ Amarre reprend Remotely là où il s'est arrêté (code de décembre 2024) : pas
 | **Gestion des postes** | Bouton « Mettre à jour l'agent », version de l'agent affichée, témoin d'agent obsolète, sauvegarde et restauration JSON des appareils et des groupes |
 | **Scripts** | Recherche de scripts et de postes dans les onglets |
 | **Agents** | Windows x64/x86, Linux x64/ARM64 (Raspberry Pi), macOS x64/arm64, publiés automatiquement à chaque version |
-| **Sécurité** | Correctifs issus d'une revue de sécurité du code, en-têtes HTTP défensifs, verrouillage des comptes contre la force brute, Swagger réservé au développement |
+| **Sécurité** | Voir [ci-dessous](#sécurité-par-rapport-à-remotely) |
 | **Fiabilité** | Postes clonés (DeviceID en double) détectés par l'UUID matériel, fin des réinstallations d'agent en boucle, postes reconnectés qui ne sont plus marqués hors ligne à tort, base SQLite qui ne remplit plus le disque, journaux nettoyés |
 
 Le détail version par version est dans [HISTORIQUE.md](HISTORIQUE.md).
+
+## Sécurité par rapport à Remotely
+
+Remotely n'est plus maintenu : ses failles ne seront pas corrigées. Amarre corrige notamment :
+
+- **Contrôle à distance** : l'obligation d'être connecté s'applique au canal temps réel du viewer, plus seulement à la page.
+- **Agents authentifiés** : chaque agent présente son jeton à la connexion, un poste ne peut plus se faire passer pour un autre.
+- **Viewer** : les messages et noms de fichiers venant du poste distant sont affichés comme du texte, plus interprétés comme du HTML.
+- **Comptes** : seul un administrateur serveur peut réinitialiser, changer de rôle ou supprimer un autre administrateur serveur ; supprimer une invitation ne touche que sa propre organisation ; verrouillage contre la force brute.
+- **E-mails** : les champs remontés par les postes sont encodés avant d'être insérés dans les e-mails HTML.
+- **Serveur** : en-têtes HTTP défensifs, Swagger réservé au développement.
+- **Dépendances** : SignalR (GHSA-f8h2-vmm9-qhj6), SQLitePCLRaw, MessagePack et les autres paquets à jour. Les contrôles tournent à chaque publication et chaque lundi, et l'image est analysée par Grype.
 
 <table>
 <tr>

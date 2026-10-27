@@ -42,6 +42,13 @@ if ($CertificatePath.Length -gt 0 -and
     (Test-Path -Path $CertificatePath) -eq $true -and 
     $CertificatePassword.Length -gt 0) {
     $SignAssemblies = $true
+    # signtool.exe of the installed Windows SDK (no longer stored in the repository)
+    $SignTool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+    if (!$SignTool) {
+        $SignTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName | Select-Object -Last 1 -ExpandProperty FullName
+    }
+    if (!$SignTool) { throw "signtool.exe introuvable : installer le Windows SDK." }
 }
 
 
@@ -129,7 +136,7 @@ dotnet publish /p:Version=$CurrentVersion /p:FileVersion=$CurrentVersion -p:Publ
 dotnet publish /p:Version=$CurrentVersion /p:FileVersion=$CurrentVersion -p:PublishProfile=desktop-win-x64 --configuration Release "$Root\Desktop.Win"
 
 if ($SignAssemblies) {
-    &"$Root\Utilities\signtool.exe" sign /fd SHA256 /f "$CertificatePath" /p $CertificatePassword /t http://timestamp.digicert.com "$Root\Server\wwwroot\Content\Win-x64\Remotely_Desktop.exe"
+    & $SignTool sign /fd SHA256 /f "$CertificatePath" /p $CertificatePassword /t http://timestamp.digicert.com "$Root\Server\wwwroot\Content\Win-x64\Remotely_Desktop.exe"
 }
 
 
@@ -137,7 +144,7 @@ if ($SignAssemblies) {
 dotnet publish /p:Version=$CurrentVersion /p:FileVersion=$CurrentVersion -p:PublishProfile=desktop-win-x86 --configuration Release "$Root\Desktop.Win"
 
 if ($SignAssemblies) {
-    &"$Root\Utilities\signtool.exe" sign /fd SHA256 /f "$CertificatePath" /p $CertificatePassword /t http://timestamp.digicert.com "$Root\Server\wwwroot\Content\Win-x86\Remotely_Desktop.exe"
+    & $SignTool sign /fd SHA256 /f "$CertificatePath" /p $CertificatePassword /t http://timestamp.digicert.com "$Root\Server\wwwroot\Content\Win-x86\Remotely_Desktop.exe"
 }
 
 # Read by the server for the "outdated agent" badge

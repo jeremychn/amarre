@@ -9,10 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Utilities", "Utilities", "{
 	ProjectSection(SolutionItems) = preProject
 		Utilities\Add-Migration.ps1 = Utilities\Add-Migration.ps1
 		Utilities\Get-PSCommands.ps1 = Utilities\Get-PSCommands.ps1
-		Utilities\Get-WindowsCommands.ps1 = Utilities\Get-WindowsCommands.ps1
 		Utilities\Publish.ps1 = Utilities\Publish.ps1
 		Utilities\Remove-Migration.ps1 = Utilities\Remove-Migration.ps1
-		Utilities\signtool.exe = Utilities\signtool.exe
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Shared", "Shared\Shared.csproj", "{3B1B36AE-7A60-4974-A868-1E24894D4149}"

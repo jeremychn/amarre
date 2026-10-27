@@ -21,5 +21,5 @@ public class BrandingInfo
     public string OrganizationId { get; set; } = null!;
 
     [StringLength(25)]
-    public string Product { get; set; } = "Remote Control";
+    public string Product { get; set; } = "Assistance à distance";
 }

@@ -53,7 +53,7 @@ public class BrandingProvider : IBrandingProvider
             _logger.LogWarning(result.Exception, "Failed to extract embedded service data.");
             _brandingInfo = new()
             {
-                Product = "Remote Control"
+                Product = "Assistance à distance"
             };
         }
 

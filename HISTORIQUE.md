@@ -1,6 +1,6 @@
 # Historique des modifications
 
-Ce dépôt repart d'un historique git vierge (29/09/2026). Il est basé sur Remotely dans son état du 17/12/2024, sous licence GPL v3. Ce document résume les modifications apportées depuis, dans l'ordre.
+Ce dépôt repart d'un historique git vierge (27/10/2026, publication sous le nom Amarre). Il est basé sur Remotely dans son état du 17/12/2024, sous licence GPL v3. Ce document résume les modifications apportées depuis, dans l'ordre.
 
 ## Juin 2026 — Traduction, sécurité, performances
 
@@ -74,3 +74,4 @@ Ce dépôt repart d'un historique git vierge (29/09/2026). Il est basé sur Remo
 | v1.14 | 26/10/2026 | Scripts : recherche de script (dossier/nom) et de poste dans les onglets ; case des postes de l'onglet Exécuter corrigée ; accueil : version de l'agent sous le nom de l'appareil ; agents inchangés |
 | v1.15 | 26/10/2026 | Agents numérotés comme la release qui les recompile (X.Y) au lieu de la date ; témoin « agent obsolète » rétabli : version du poste différente des agents servis (`AgentVersion.txt` dans `Content.zip`) ; agents inchangés (publiés à part : agents-1.15) |
 | v1.16 | 27/10/2026 | Projet publié sous le nom Amarre (nouveau dépôt public, nouveau logo) ; agents : jeton exigé à la connexion (un agent réinstallé doit être supprimé de l'interface pour revenir), heartbeat réservé à l'appareil enregistré ; interface entièrement traduite (appareils, scripts, organisation, config serveur, lecteur, compte, téléchargements, crédits, erreurs) ; accueil redessiné ; agents recompilés |
+| v1.17 | 27/10/2026 | Client d'assistance : titre par défaut « Assistance à distance » (organisations existantes : le changer dans **Personnalisation**) ; pied de page du viewer : « Amarre, basé sur Remotely » ; `signtool.exe` retiré du dépôt (`Publish.ps1` utilise celui du Windows SDK) ; scripts de développement obsolètes supprimés ; README : section sécurité ; agents recompilés |
