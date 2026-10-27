@@ -253,7 +253,7 @@ public class AgentHub : Hub<IAgentHubClient>
             return true;
         }
 
-        // Agent 1.17+ : preuve signée sur le défi de cette connexion (usage unique).
+        // Agent 1.19+ : preuve signée sur le défi de cette connexion (usage unique).
         if (Context.Items.Remove(AgentChallengeKey, out var challenge) &&
             challenge is string serverChallenge &&
             AgentTokenProof.AreEqual(AgentTokenProof.FromAgent(stored.Value.ServerVerificationToken, serverChallenge), device.ServerVerificationToken))
@@ -261,7 +261,7 @@ public class AgentHub : Hub<IAgentHubClient>
             return true;
         }
 
-        // Agent 1.16 : jeton en clair.
+        // Agents 1.16 à 1.18 : jeton en clair.
         if (AgentTokenProof.AreEqual(stored.Value.ServerVerificationToken, device.ServerVerificationToken))
         {
             return true;
@@ -393,7 +393,7 @@ public class AgentHub : Hub<IAgentHubClient>
         return settings.ServerUrl;
     }
 
-    // Agents antérieurs à la 1.17 uniquement : les récents passent par ProveServer.
+    // Agents antérieurs à la 1.19 uniquement : les récents passent par ProveServer.
     public string GetServerVerificationToken()
     {
         return $"{Device?.ServerVerificationToken}";

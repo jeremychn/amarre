@@ -221,11 +221,11 @@ public class AgentHubTests
         device.Drives = [];
         await _dataService.AddOrUpdateDevice(device.ToDto());
         _dataService.SetServerVerificationToken(device.ID, "jeton-du-poste");
-        await SetAgentVersion(device.ID, "1.17.0.0");
+        await SetAgentVersion(device.ID, "1.19.0.0");
 
         var hub = CreateHub(new AgentHubSessionCache(), out _);
         var dto = device.ToDto();
-        dto.AgentVersion = "1.17.0.0";
+        dto.AgentVersion = "1.19.0.0";
         dto.ServerVerificationToken = AgentTokenProof.FromAgent("jeton-du-poste", hub.GetAgentChallenge());
         Assert.IsTrue(await hub.DeviceCameOnline(dto));
 
