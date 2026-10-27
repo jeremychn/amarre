@@ -8,6 +8,7 @@ using Moq;
 using Remotely.Server.Hubs;
 using Remotely.Server.Services.Stores;
 using Remotely.Server.Tests.Mocks;
+using Remotely.Shared.Entities;
 using Remotely.Shared.Extensions;
 using Remotely.Shared.Interfaces;
 using System.Threading.Tasks;
@@ -453,5 +454,39 @@ public class CircuitConnectionTests
         _agentHubContextFixture.SingleClientProxyMock.VerifyNoOtherCalls();
         _agentHubContextFixture.HubContextMock.VerifyNoOtherCalls();
         _agentSessionCache.VerifyNoOtherCalls();
+    }
+
+    [TestMethod]
+    public async Task WakeDevices_GivenSeveralPeersInGroup_UsesEveryPeer()
+    {
+        _circuitConnection.User = _testData.Org1Admin1;
+
+        var macAddress = "78E3B5A1E45B";
+        _testData.Org1Device1.MacAddresses = new[] { macAddress };
+        _testData.Org1Device1.DeviceGroupID = _testData.Org1Group1.ID;
+
+        // Deux postes en ligne du même groupe : tous deux doivent relayer le réveil.
+        var peerA = new Device { ID = "peerA", OrganizationID = _testData.Org1Id, DeviceGroupID = _testData.Org1Group1.ID };
+        var peerB = new Device { ID = "peerB", OrganizationID = _testData.Org1Id, DeviceGroupID = _testData.Org1Group1.ID };
+
+        _agentSessionCache
+            .Setup(x => x.GetAllDevices())
+            .Returns(new[] { peerA, peerB });
+
+        var connectionA = "connA";
+        var connectionB = "connB";
+        _agentSessionCache
+            .Setup(x => x.TryGetConnectionId(peerA.ID, out connectionA))
+            .Returns(true);
+        _agentSessionCache
+            .Setup(x => x.TryGetConnectionId(peerB.ID, out connectionB))
+            .Returns(true);
+
+        var wakeResult = await _circuitConnection.WakeDevices(new[] { _testData.Org1Device1 });
+
+        Assert.IsTrue(wakeResult.IsSuccess);
+        _agentHubContextFixture.HubClientsMock.Verify(x => x.Client(connectionA), Times.Once);
+        _agentHubContextFixture.HubClientsMock.Verify(x => x.Client(connectionB), Times.Once);
+        _agentHubContextFixture.SingleClientProxyMock.Verify(x => x.WakeDevice(macAddress), Times.Exactly(2));
     }
 }

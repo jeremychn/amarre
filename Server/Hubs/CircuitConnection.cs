@@ -515,8 +515,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
                 {
                     var group = devicesByGroupId.GetOrAdd(device.DeviceGroupID, key => new());
                     group.Add(device);
-                    // We only need the device in one group.
-                    break;
+                    // Un poste n'a besoin d'être que dans une seule liste.
+                    continue;
                 }
 
                 if (!string.IsNullOrWhiteSpace(device.PublicIP))

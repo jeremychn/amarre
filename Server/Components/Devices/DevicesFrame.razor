@@ -52,6 +52,42 @@
         </button>
     </div>
 
+    @if (SelectedCount > 0)
+    {
+        <div class="bulk-actions" @onclick:stopPropagation>
+            <span class="bulk-count"><strong>@SelectedCount</strong> poste@(SelectedCount > 1 ? "s" : "") coché@(SelectedCount > 1 ? "s" : "")</span>
+            <button class="btn btn-sm btn-secondary" title="Réveiller les postes cochés hors ligne (Wake-on-LAN)" @onclick="WakeSelected">
+                <span class="oi oi-power-standby"></span>
+                <span class="ms-1">Réveiller</span>
+            </button>
+            <button class="btn btn-sm btn-secondary" title="Mettre à jour l'agent des postes cochés en ligne" @onclick="UpdateSelected">
+                <span class="oi oi-cloud-download"></span>
+                <span class="ms-1">Mettre à jour l'agent</span>
+            </button>
+            <div class="input-group input-group-sm toolbar-item">
+                <select class="form-select" title="Groupe de destination" @bind="_bulkGroupId">
+                    <option value="">Changer de groupe…</option>
+                    @foreach (var group in _deviceGroups)
+                    {
+                        <option @key="group.ID" value="@group.ID">@group.Name</option>
+                    }
+                </select>
+                <button class="btn btn-secondary" title="Déplacer les postes cochés dans ce groupe" disabled="@string.IsNullOrEmpty(_bulkGroupId)" @onclick="MoveSelectedToGroup">
+                    Déplacer
+                </button>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" title="Désinstaller l'agent des postes cochés" @onclick="UninstallSelected">
+                <span class="oi oi-delete"></span>
+                <span class="ms-1">Désinstaller l'agent</span>
+            </button>
+            <button class="btn btn-sm btn-danger" title="Supprimer les postes cochés de la liste" @onclick="RemoveSelected">
+                <span class="oi oi-trash"></span>
+                <span class="ms-1">Supprimer</span>
+            </button>
+            <button class="btn btn-sm btn-link" @onclick="ClearSelection">Décocher</button>
+        </div>
+    }
+
     <div class="device-counters">
         <button class="counter counter-online @CounterClass(QuickFilter.Online)" @onclick="() => ToggleQuickFilter(QuickFilter.Online)" @onclick:stopPropagation>
             <span class="dot"></span> En ligne <strong>@_allDevices.Count(x => x.IsOnline)</strong>

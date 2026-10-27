@@ -37,6 +37,7 @@ public partial class DevicesFrame : AuthComponentBase
     private ListSortDirection _sortDirection;
     private Version? _currentAgentVersion;
     private QuickFilter _quickFilter;
+    private string _bulkGroupId = string.Empty;
 
     private enum QuickFilter { None, Online, Outdated, Offline, DiskFull }
 
@@ -65,6 +66,9 @@ public partial class DevicesFrame : AuthComponentBase
     private IDataService DataService { get; init; } = null!;
 
     private Device[] DisplayedDevices => GetDisplayedDevices();
+
+    [Inject]
+    private IJsInterop JsInterop { get; init; } = null!;
 
     [Inject]
     private ILogger<DevicesFrame> Logger { get; init; } = null!;
@@ -377,6 +381,113 @@ public partial class DevicesFrame : AuthComponentBase
         CardStore.InvokeSelectionsChanged();
     }
 
+    public void NotifySelectionChanged() => StateHasChanged();
+
+    private int SelectedCount => CardStore.SelectedDevices.Count();
+
+    private Device[] GetSelectedDevices()
+    {
+        var selected = CardStore.SelectedDevices.ToHashSet();
+        return _allDevices.Where(x => selected.Contains(x.ID)).ToArray();
+    }
+
+    private void ClearSelection()
+    {
+        CardStore.Clear();
+        CardStore.InvokeSelectionsChanged();
+    }
+
+    private async Task AfterRemoval(int count, string action)
+    {
+        ClearSelection();
+        await Refresh();
+        ToastService.ShowToast2($"{action} : {count} poste(s).", ToastType.Success);
+    }
+
+    private async Task WakeSelected()
+    {
+        var offline = GetSelectedDevices().Where(x => !x.IsOnline).ToArray();
+        if (offline.Length == 0)
+        {
+            ToastService.ShowToast2("Aucun poste coché n'est hors ligne.", ToastType.Warning);
+            return;
+        }
+
+        var result = await CircuitConnection.WakeDevices(offline);
+        if (result.IsSuccess)
+        {
+            ToastService.ShowToast2($"Commandes de réveil envoyées pour {offline.Length} poste(s).", ToastType.Success);
+        }
+        else
+        {
+            ToastService.ShowToast2($"Échec de l'envoi des commandes de réveil. Raison : {result.Reason}", ToastType.Error);
+        }
+    }
+
+    private async Task UpdateSelected()
+    {
+        var online = GetSelectedDevices().Where(x => x.IsOnline).Select(x => x.ID).ToArray();
+        if (online.Length == 0)
+        {
+            ToastService.ShowToast2("Aucun poste coché n'est en ligne.", ToastType.Warning);
+            return;
+        }
+
+        await CircuitConnection.UpdateAgents(online);
+        ToastService.ShowToast2($"Demande de mise à jour envoyée à {online.Length} poste(s).", ToastType.Success);
+    }
+
+    private async Task MoveSelectedToGroup()
+    {
+        EnsureUserSet();
+        var group = _deviceGroups.Find(x => x.ID == _bulkGroupId);
+        if (group is null)
+        {
+            return;
+        }
+
+        // Mêmes contrôles que les actions du hub : droits sur le poste et organisation.
+        var deviceIds = DataService.FilterDeviceIdsByUserPermission(CardStore.SelectedDevices.ToArray(), User);
+        var moved = 0;
+        foreach (var deviceId in deviceIds)
+        {
+            if ((await DataService.AddDeviceToGroup(deviceId, group.ID)).IsSuccess)
+            {
+                moved++;
+                await CircuitConnection.TriggerHeartbeat(deviceId);
+            }
+        }
+
+        _bulkGroupId = string.Empty;
+        await Refresh();
+        ToastService.ShowToast2($"{moved} poste(s) déplacé(s) dans « {group.Name} ».", ToastType.Success);
+    }
+
+    private async Task UninstallSelected()
+    {
+        var ids = CardStore.SelectedDevices.ToArray();
+        if (!await JsInterop.Confirm($"Désinstaller l'agent de {ids.Length} poste(s) ? C'est définitif."))
+        {
+            return;
+        }
+
+        await CircuitConnection.UninstallAgents(ids);
+        await AfterRemoval(ids.Length, "Désinstallation demandée");
+    }
+
+    private async Task RemoveSelected()
+    {
+        var ids = CardStore.SelectedDevices.ToArray();
+        if (!await JsInterop.Confirm(
+            $"Supprimer {ids.Length} poste(s) de la liste ? Un agent encore installé réapparaîtra à sa prochaine connexion."))
+        {
+            return;
+        }
+
+        await CircuitConnection.RemoveDevices(ids);
+        await AfterRemoval(ids.Length, "Suppression");
+    }
+
     private void ToggleSortDirection()
     {
         if (_sortDirection == ListSortDirection.Ascending)
@@ -402,7 +513,7 @@ public partial class DevicesFrame : AuthComponentBase
             offlineDevices = offlineDevices.Where(x => x.DeviceGroupID is null);
         }
 
-        if (_selectedGroupId != _deviceGroupAll)
+        else if (_selectedGroupId != _deviceGroupAll)
         {
             offlineDevices = offlineDevices.Where(x => x.DeviceGroupID == _selectedGroupId);
         }

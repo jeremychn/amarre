@@ -356,6 +356,8 @@ public partial class DeviceCard : AuthComponentBase
         {
             SelectedCards.Remove(Device.ID);
         }
+
+        ParentFrame.NotifySelectionChanged();
     }
 
     private async Task UpdateAgent()
