@@ -47,7 +47,9 @@ Le détail version par version est dans [HISTORIQUE.md](HISTORIQUE.md).
 Remotely n'est plus maintenu : ses failles ne seront pas corrigées. Amarre corrige notamment :
 
 - **Contrôle à distance** : l'obligation d'être connecté s'applique au canal temps réel du viewer, plus seulement à la page.
-- **Agents authentifiés** : chaque agent présente son jeton à la connexion, un poste ne peut plus se faire passer pour un autre.
+- **Agents authentifiés** : chaque agent prouve qu'il détient le jeton de son poste, et vérifie de la même façon qu'il parle au bon serveur, sans que le jeton circule. Un poste ne peut plus se faire passer pour un autre, ni un faux serveur pour le vôtre.
+- **Installeurs** : l'identifiant d'organisation d'un lien de téléchargement est vérifié avant d'être écrit dans le script d'installation.
+- **API** : refus par défaut si une vérification d'autorisation échoue ; journaux du serveur et organisation par défaut réservés aux administrateurs du serveur ; les jetons temporaires remis aux agents ne donnent accès qu'aux données de leur organisation.
 - **Viewer** : les messages et noms de fichiers venant du poste distant sont affichés comme du texte, plus interprétés comme du HTML.
 - **Comptes** : seul un administrateur serveur peut réinitialiser, changer de rôle ou supprimer un autre administrateur serveur ; supprimer une invitation ne touche que sa propre organisation ; verrouillage contre la force brute.
 - **E-mails** : les champs remontés par les postes sont encodés avant d'être insérés dans les e-mails HTML.

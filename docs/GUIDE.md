@@ -366,7 +366,7 @@ Puis basculer le conteneur :
    ```
    À distance depuis un poste admin : `Invoke-Command -ComputerName <poste> { Restart-Service Remotely_Service }`. Linux : `sudo systemctl restart remotely-agent`. macOS : `sudo launchctl kickstart -k system/com.translucency.remotely-agent`.
 
-Ordre : serveur d'abord, agents ensuite (le serveur accepte les anciens agents). Si une modification touche à la fois l'agent et le viewer, déployer les deux : un ancien agent avec un nouveau viewer peut mal se comporter (ex. Ctrl+V qui colle l'ancien contenu).
+Ordre : serveur d'abord, agents ensuite (le serveur accepte les anciens agents). Depuis v1.19, cet ordre est impératif : un agent 1.19 ou plus refuse un serveur antérieur. Si une modification touche à la fois l'agent et le viewer, déployer les deux : un ancien agent avec un nouveau viewer peut mal se comporter (ex. Ctrl+V qui colle l'ancien contenu).
 
 ## 9. Retour arrière
 
@@ -394,6 +394,7 @@ Ordre : serveur d'abord, agents ensuite (le serveur accepte les anciens agents).
 | `maj-agents.sh` : « Aucune release avec Content.zip » | Lancer la workflow à la main (Actions → Release → Run workflow) |
 | `@`, `#`, `{` ou pavé numérique sans effet ou faux sur le poste distant | Serveur antérieur à v1.6, ou ancien JS en cache (Ctrl+F5) |
 | Poste qui ne revient plus, journal serveur « Jeton d'agent absent ou faux » | Depuis v1.16, un poste passé en agent 1.16+ doit présenter son jeton. Agent réinstallé (jeton perdu) : supprimer l'appareil dans l'interface, il revient au prochain démarrage du service |
+| Poste qui ne revient plus, journal de l'agent « Le serveur ne connaît pas le jeton de ce poste » (journal serveur « inconnu du serveur mais déjà enrôlé ») | Depuis v1.19, l'agent vérifie le serveur sans lui envoyer son jeton. Appareil supprimé dans l'interface alors que l'agent tournait encore : réinstaller l'agent, ou effacer `ServerVerificationToken` dans `ConnectionInfo.json` et redémarrer le service. Sans suppression récente : le poste parle peut-être à un autre serveur que le vôtre |
 | Tout le monde déconnecté après redémarrage | Volume `keys` absent |
 | Mauvaise URL ou http dans les installeurs | En-têtes `X-Forwarded-*`, `KnownProxies`, `DockerGatewayIp`, ou `Force Client HTTPS` |
 | Ctrl+V ne fait rien | Site pas en HTTPS, ou ancien JS en cache (Ctrl+F5) |
