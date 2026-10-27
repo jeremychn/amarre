@@ -93,7 +93,8 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation("Email successfully sent to {toEmail}.  Subject: \"{subject}\".", toEmail, subject);
+            // Pas d'adresse du destinataire dans les journaux (donnée personnelle)
+            _logger.LogInformation("Email successfully sent.  Subject: \"{subject}\".", subject);
 
             return true;
         }
