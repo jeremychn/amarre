@@ -29,6 +29,9 @@ Ce guide couvre tout le cycle : installation du serveur, déploiement des agents
 - .NET 10 LTS, dépendances de sécurité à jour (SQLitePCLRaw 3.50.3).
 - Viewer : mode de qualité d'image (Auto / Performance / Qualité), schéma et miniatures des écrans en multi-écran.
 - Bouton « Mettre à jour l'agent » sur chaque appareil, page **Sauvegarde** (export/restauration JSON).
+- **Actions groupées** sur l'accueil : cocher des postes (ou **Tout sélectionner**) fait apparaître une barre pour les réveiller (Wake-on-LAN, postes hors ligne), mettre à jour leur agent (postes en ligne), les changer de groupe, désinstaller leur agent ou les supprimer. Les deux dernières demandent confirmation. Chaque action ne touche que les postes auxquels l'utilisateur a droit.
+  - **Supprimer** retire seulement le poste de la liste : un agent encore installé revient à sa prochaine connexion, sans groupe ni alias.
+  - **Désinstaller l'agent** l'enlève du poste, puis supprime la fiche. Un poste hors ligne ne reçoit pas l'ordre : son agent reste installé et le poste reviendra.
 - Agents Linux ARM64 (Raspberry Pi…) en plus de Windows, Linux x64 et macOS.
 - **Copier-coller direct** pendant la prise en main :
   - **Ctrl+V** dans le viewer colle le texte copié sur ton PC dans l'application distante ;
@@ -360,7 +363,7 @@ Puis basculer le conteneur :
 1. Publier et déployer les agents ([§5.2](#52-déployer-sur-le-serveur), ou [§5.4](#54-instance-aux-agents-signés) pour une instance aux agents signés).
 2. Les postes se mettent à jour **seuls** : au démarrage du service, à chaque reconnexion et toutes les 6 h, l'agent compare l'ETag de son zip (`Remotely-Win-x64.zip`, `Remotely-Linux.zip`…) et se réinstalle s'il a changé. C'est le changement du zip qui déclenche la mise à jour, pas le numéro de version.
    Témoin orange « agent obsolète » sur la carte : la version de l'agent diffère de celle des agents servis (`AgentVersion.txt` du dossier `content`). Sans ce fichier, aucun poste n'est signalé.
-3. Pour forcer sur un poste : menu de la carte de l'appareil → **Mettre à jour l'agent**, ou redémarrer le service Remotely. Sur Windows, dans un PowerShell administrateur :
+3. Pour forcer sur un poste : menu de la carte de l'appareil → **Mettre à jour l'agent** (plusieurs postes : les cocher sur l'accueil → **Mettre à jour l'agent** dans la barre d'actions groupées), ou redémarrer le service Remotely. Sur Windows, dans un PowerShell administrateur :
    ```powershell
    Restart-Service Remotely_Service
    ```

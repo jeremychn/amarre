@@ -34,11 +34,11 @@ Amarre reprend Remotely là où il s'est arrêté (code de décembre 2024) : pas
 |---|---|
 | **Plateforme** | .NET 10 LTS, toutes les dépendances à jour |
 | **Prise en main** | Copier-coller dans les deux sens (Ctrl+C / Ctrl+V), claviers AZERTY (AltGr, pavé numérique), mode de qualité Auto / Performance / Qualité, schéma et miniatures en multi-écran |
-| **Gestion des postes** | Bouton « Mettre à jour l'agent », version de l'agent affichée, témoin d'agent obsolète, sauvegarde et restauration JSON des appareils et des groupes |
+| **Gestion des postes** | Bouton « Mettre à jour l'agent », version de l'agent affichée, témoin d'agent obsolète, compteurs cliquables (en ligne, agent obsolète, hors ligne, disque plein), actions groupées sur les postes cochés (réveiller, mettre à jour l'agent, changer de groupe, désinstaller, supprimer), sauvegarde et restauration JSON des appareils et des groupes |
 | **Scripts** | Recherche de scripts et de postes dans les onglets |
 | **Agents** | Windows x64/x86, Linux x64/ARM64 (Raspberry Pi), macOS x64/arm64, publiés automatiquement à chaque version |
 | **Sécurité** | Voir [ci-dessous](#sécurité-par-rapport-à-remotely) |
-| **Fiabilité** | Postes clonés (DeviceID en double) détectés par l'UUID matériel, fin des réinstallations d'agent en boucle, postes reconnectés qui ne sont plus marqués hors ligne à tort, base SQLite qui ne remplit plus le disque, journaux nettoyés |
+| **Fiabilité** | Postes clonés (DeviceID en double) détectés par l'UUID matériel, fin des réinstallations d'agent en boucle, postes reconnectés qui ne sont plus marqués hors ligne à tort, base SQLite qui ne remplit plus le disque, réveil groupé (Wake-on-LAN) relayé par tous les postes en ligne du groupe, journaux nettoyés |
 
 Le détail version par version est dans [HISTORIQUE.md](HISTORIQUE.md).
 
