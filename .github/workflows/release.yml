@@ -89,14 +89,14 @@ jobs:
         with:
           fetch-depth: 0 # historique + tags pour comparer avec la version précédente
 
-      # Rebuild seulement si le code des agents a changé depuis le tag précédent
+      # Rebuild seulement si le code des agents ou leurs scripts d'installation ont changé depuis le tag précédent
       # (toujours en lancement manuel ou s'il n'y a pas de tag précédent).
       - name: Agents modifiés ?
         shell: pwsh
         run: |
           $prev = git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>$null
           $changed = if ('${{ github.event_name }}' -ne 'push' -or -not $prev) { 'force' } else {
-            git diff --name-only $prev HEAD -- Agent Desktop.Native Desktop.Shared Desktop.UI Desktop.Win Desktop.Linux Shared Directory.Build.props
+            git diff --name-only $prev HEAD -- Agent Desktop.Native Desktop.Shared Desktop.UI Desktop.Win Desktop.Linux Shared Directory.Build.props Server/wwwroot/Content
           }
           "BUILD=$([bool]$changed)" >> $env:GITHUB_ENV
           "PREV=$prev" >> $env:GITHUB_ENV
