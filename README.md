@@ -38,7 +38,7 @@ Amarre reprend Remotely là où il s'est arrêté (code de décembre 2024) : pas
 | **Scripts** | Recherche de scripts et de postes dans les onglets |
 | **Agents** | Windows x64/x86, Linux x64/ARM64 (Raspberry Pi), macOS x64/arm64, publiés automatiquement à chaque version |
 | **Sécurité** | Voir [ci-dessous](#sécurité-par-rapport-à-remotely) |
-| **Fiabilité** | Postes clonés (DeviceID en double) détectés par l'UUID matériel, fin des réinstallations d'agent en boucle, postes reconnectés qui ne sont plus marqués hors ligne à tort, base SQLite qui ne remplit plus le disque, réveil groupé (Wake-on-LAN) relayé par tous les postes en ligne du groupe, journaux nettoyés |
+| **Fiabilité** | Postes clonés (DeviceID en double) détectés par l'UUID matériel, fin des réinstallations d'agent en boucle, postes reconnectés qui ne sont plus marqués hors ligne à tort, base SQLite qui ne remplit plus le disque, réveil groupé (Wake-on-LAN) relayé par tous les postes en ligne du groupe, jeton du poste conservé aux mises à jour d'agent, journaux nettoyés |
 
 Le détail version par version est dans [HISTORIQUE.md](HISTORIQUE.md).
 
