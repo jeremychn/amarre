@@ -132,9 +132,12 @@ function Install-Remotely {
 	if ((Test-Path -Path "$InstallPath") -and (Test-Path -Path "$InstallPath\ConnectionInfo.json")) {
 		$ConnectionInfo = Get-Content -Path "$InstallPath\ConnectionInfo.json" | ConvertFrom-Json
 		if ($ConnectionInfo) {
+			# Mise à jour vers le même serveur : garder le jeton, sinon le poste ne se fait plus reconnaître.
+			if ("$($ConnectionInfo.Host)".TrimEnd("/") -ne $HostName.TrimEnd("/")) {
+				$ConnectionInfo.ServerVerificationToken = ""
+			}
 			$ConnectionInfo.Host = $HostName
 			$ConnectionInfo.OrganizationID = $Organization
-			$ConnectionInfo.ServerVerificationToken = ""
 		}
 	}
 	else {

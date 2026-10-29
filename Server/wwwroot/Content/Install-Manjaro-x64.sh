@@ -42,6 +42,8 @@ pacman -S curl --noconfirm
 
 if [ -f "$InstallDir/ConnectionInfo.json" ]; then
     SavedGUID=`cat "$InstallDir/ConnectionInfo.json" | jq -r '.DeviceID'`
+    # Mise à jour vers le même serveur : garder le jeton, sinon le poste ne se fait plus reconnaître.
+    SavedToken=`cat "$InstallDir/ConnectionInfo.json" | jq -r --arg h "$HostName" 'if (.Host // "" | rtrimstr("/")) == ($h | rtrimstr("/")) then (.ServerVerificationToken // "") else "" end'`
     if [[ "$SavedGUID" != "null" && -n "$SavedGUID" ]]; then
         GUID="$SavedGUID"
     fi
@@ -70,7 +72,7 @@ connectionInfo="{
     \"DeviceID\":\"$GUID\", 
     \"Host\":\"$HostName\",
     \"OrganizationID\": \"$Organization\",
-    \"ServerVerificationToken\":\"\"
+    \"ServerVerificationToken\":\"$SavedToken\"
 }"
 
 echo "$connectionInfo" > $InstallDir/ConnectionInfo.json

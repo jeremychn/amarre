@@ -46,6 +46,7 @@ public class AgentHub : Hub<IAgentHubClient>
     }
 
     private const string AgentChallengeKey = "AgentChallenge";
+    private const string AdmittedWithoutTokenKey = "AdmittedWithoutToken";
 
     // TODO: Replace with new invoke capability in .NET 7 in ScriptingController.
     public static IMemoryCache ApiScriptResults { get; } = new MemoryCache(new MemoryCacheOptions());
@@ -269,6 +270,8 @@ public class AgentHub : Hub<IAgentHubClient>
 
         if (string.IsNullOrEmpty(device.ServerVerificationToken) && !SendsAgentToken(stored.Value.AgentVersion))
         {
+            // Ancien agent mis à jour (l'installeur vidait le jeton) : le nouveau jeton qu'il posera remplace l'ancien.
+            Context.Items[AdmittedWithoutTokenKey] = true;
             return true;
         }
 
@@ -485,7 +488,9 @@ public class AgentHub : Hub<IAgentHubClient>
     public void SetServerVerificationToken(string verificationToken)
     {
         // Un jeton déjà posé ne se remplace pas : sinon un imposteur coupe le vrai poste.
-        if (Device is null || !string.IsNullOrEmpty(Device.ServerVerificationToken))
+        // Sauf connexion admise sans jeton (ancien agent) : elle ne prouvait déjà rien, sans ça le poste se bloque.
+        if (Device is null ||
+            (!string.IsNullOrEmpty(Device.ServerVerificationToken) && !Context.Items.Remove(AdmittedWithoutTokenKey)))
         {
             return;
         }

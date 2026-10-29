@@ -271,6 +271,33 @@ public class AgentHubTests
         Assert.AreEqual("premier", (await _dataService.GetDevice(device.ID)).Value?.ServerVerificationToken);
     }
 
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task SetServerVerificationToken_AncienAgentMisAJour_RemplaceLeJeton()
+    {
+        // Agent daté mis à jour : l'installeur avait vidé son jeton, il en pose un nouveau.
+        var device = _testData.Org1Device1;
+        device.Drives = [];
+        await _dataService.AddOrUpdateDevice(device.ToDto());
+        _dataService.SetServerVerificationToken(device.ID, "ancien-jeton");
+        await SetAgentVersion(device.ID, "2026.10.19.1707");
+
+        var hub = CreateHub(new AgentHubSessionCache(), out _);
+        var dto = device.ToDto();
+        dto.AgentVersion = "1.20.0.0";
+        dto.ServerVerificationToken = "";
+        Assert.IsTrue(await hub.DeviceCameOnline(dto));
+
+        hub.SetServerVerificationToken("nouveau-jeton");
+        hub.SetServerVerificationToken("imposteur");
+        Assert.AreEqual("nouveau-jeton", (await _dataService.GetDevice(device.ID)).Value?.ServerVerificationToken);
+
+        // Reconnexion suivante en 1.20 : la preuve sur le nouveau jeton passe.
+        var next = CreateHub(new AgentHubSessionCache(), out _);
+        dto.ServerVerificationToken = AgentTokenProof.FromAgent("nouveau-jeton", next.GetAgentChallenge());
+        Assert.IsTrue(await next.DeviceCameOnline(dto));
+    }
+
     private async Task SetAgentVersion(string deviceId, string agentVersion)
     {
         var dto = (await _dataService.GetDevice(deviceId)).Value!.ToDto();
