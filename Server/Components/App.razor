@@ -8,7 +8,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=550, user-scalable=no" />
-    <title>Amarre</title>
+    <title>@_title</title>
     <base href="/" />
     <link href="css/site.css" rel="stylesheet" />
     <link href="Remotely_Server.styles.css" rel="stylesheet" />
@@ -41,6 +41,7 @@
 
     private RemotelyUser? _user;
     private Theme _theme;
+    private string _title = "Amarre";
 
     protected override async Task OnInitializedAsync()
     {
@@ -54,6 +55,21 @@
                 _user = userResult.Value;
             }
         }
+
+        // Nom de l'organisation de l'utilisateur, sinon celui de l'organisation par défaut.
+        var orgName = _user?.Organization?.OrganizationName;
+        if (string.IsNullOrWhiteSpace(orgName))
+        {
+            var orgResult = !string.IsNullOrWhiteSpace(_user?.OrganizationID)
+                ? await DataService.GetOrganizationById(_user.OrganizationID)
+                : await DataService.GetDefaultOrganization();
+            orgName = orgResult.IsSuccess ? orgResult.Value.OrganizationName : null;
+        }
+        if (!string.IsNullOrWhiteSpace(orgName))
+        {
+            _title = orgName;
+        }
+
         await base.OnInitializedAsync();
     }
 

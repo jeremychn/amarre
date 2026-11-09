@@ -175,12 +175,7 @@
 
         var userResult = await AuthService.GetUser();
 
-        if (!userResult.IsSuccess)
-        {
-            return;
-        }
-
-        _user = userResult.Value;
+        _user = userResult.IsSuccess ? userResult.Value : null;
 
         if (!string.IsNullOrWhiteSpace(_user?.OrganizationID))
         {
