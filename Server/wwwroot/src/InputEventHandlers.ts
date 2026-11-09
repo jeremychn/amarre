@@ -824,10 +824,63 @@ export function ApplyInputHandlers() {
     let pasteKey: string = null;
     let pasteFallbackTimer: number = null;
     const altGrChars = new Set<string>();
+    let remoteShiftDown = false;
 
-    const isEditableFocused = () =>
-        !!(document.querySelector("input:focus") ||
-            document.querySelector("textarea:focus"));
+    // Le navigateur ne compose un accent (touche morte) que si un champ a déjà le
+    // focus : on garde ce champ invisible actif et on tape le résultat en Unicode.
+    const deadKeyInput = document.createElement("input");
+    deadKeyInput.tabIndex = -1;
+    deadKeyInput.autocomplete = "off";
+    deadKeyInput.setAttribute("aria-hidden", "true");
+    deadKeyInput.style.cssText = "position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none";
+    document.body.append(deadKeyInput);
+    const hasFineKeyboard = !window.matchMedia("(hover: none)").matches;
+
+    const isEditableFocused = () => {
+        const focused = document.querySelector("input:focus, textarea:focus");
+        return !!focused && focused !== deadKeyInput;
+    };
+
+    const focusDeadKeyInput = () => {
+        if (hasFineKeyboard &&
+            !ViewerApp.ViewOnlyMode &&
+            !isEditableFocused() &&
+            !document.querySelector("select:focus")) {
+            deadKeyInput.focus({ preventScroll: true });
+        }
+    };
+
+    const isDeadKeyEvent = (e: KeyboardEvent) =>
+        e.key !== "Shift" && (e.isComposing || e.key === "Dead" || e.key === "Process");
+
+    deadKeyInput.addEventListener("compositionend", async (e) => {
+        deadKeyInput.value = "";
+        if (!e.data || ViewerApp.ViewOnlyMode) {
+            return;
+        }
+        ViewerApp.ClipboardWatcher.FlushPendingText();
+        await ViewerApp.MessageSender.SendTextTransfer(e.data, true);
+    });
+
+    deadKeyInput.addEventListener("input", (e) => {
+        if (!(e as InputEvent).isComposing) {
+            deadKeyInput.value = "";
+        }
+    });
+
+    window.addEventListener("mouseup", focusDeadKeyInput);
+    window.addEventListener("focus", focusDeadKeyInput);
+    focusDeadKeyInput();
+
+    // Sous Linux, après une touche morte, le navigateur ne déclenche aucun keyup
+    // (ni celui de la touche morte, ni celui de Shift) : Shift resterait enfoncé
+    // côté distant. L'événement suivant indique son état réel.
+    const releaseStuckShift = async (e: KeyboardEvent) => {
+        if (remoteShiftDown && !e.shiftKey) {
+            remoteShiftDown = false;
+            await ViewerApp.MessageSender.SendKeyUp("Shift");
+        }
+    };
 
     const sendPasteKey = async () => {
         if (pasteFallbackTimer) {
@@ -868,6 +921,11 @@ export function ApplyInputHandlers() {
         if (ViewerApp.ViewOnlyMode) {
             return;
         }
+        const shiftRelease = releaseStuckShift(e);
+        if (isDeadKeyEvent(e)) {
+            // Pas de preventDefault : le navigateur compose dans deadKeyInput.
+            return;
+        }
         if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() == "v") {
             // Pas de preventDefault : sinon le navigateur ne déclenche pas "paste".
             if (!e.repeat) {
@@ -880,6 +938,7 @@ export function ApplyInputHandlers() {
         if (!e.ctrlKey || !e.shiftKey || e.key.toLowerCase() != "i") {
             e.preventDefault();
         }
+        await shiftRelease;
         // AltGr (AZERTY : @ # { [ | ` \ ^ ] } €) arrive côté distant comme Ctrl + Alt,
         // que l'agent ne sait pas rejouer (VkKeyScan renvoie les modificateurs dans
         // l'octet haut). On relâche Ctrl côté distant et on tape le caractère en Unicode.
@@ -895,6 +954,9 @@ export function ApplyInputHandlers() {
             return;
         }
         ViewerApp.ClipboardWatcher.FlushPendingText();
+        if (e.key === "Shift") {
+            remoteShiftDown = true;
+        }
         await ViewerApp.MessageSender.SendKeyDown(e.key);
     });
     window.addEventListener("keyup", async function (e) {
@@ -903,6 +965,14 @@ export function ApplyInputHandlers() {
         }
         e.preventDefault();
         if (ViewerApp.ViewOnlyMode) {
+            return;
+        }
+        if (e.key === "Shift") {
+            remoteShiftDown = false;
+        } else {
+            await releaseStuckShift(e);
+        }
+        if (isDeadKeyEvent(e)) {
             return;
         }
         if (pasteKey && e.key.toLowerCase() == "v") {
@@ -926,6 +996,7 @@ export function ApplyInputHandlers() {
         if (ViewerApp.ViewOnlyMode) {
             return;
         }
+        remoteShiftDown = false;
         await ViewerApp.MessageSender.SendSetKeyStatesUp();
     });
 
