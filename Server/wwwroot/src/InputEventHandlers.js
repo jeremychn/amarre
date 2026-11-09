@@ -594,6 +594,9 @@ export function ApplyInputHandlers() {
     let pasteFallbackTimer = null;
     const altGrChars = new Set();
     let remoteShiftDown = false;
+    // Windows (Firefox, Chrome, Edge) ne compose pas : après une touche morte, la touche
+    // suivante arrive déjà accentuée (« ê »), que l'agent ne sait pas rejouer.
+    let afterDeadKey = false;
     // Le navigateur ne compose un accent (touche morte) que si un champ a déjà le
     // focus : on garde ce champ invisible actif et on tape le résultat en Unicode.
     const deadKeyInput = document.createElement("input");
@@ -618,6 +621,7 @@ export function ApplyInputHandlers() {
     const isDeadKeyEvent = (e) => e.key !== "Shift" && (e.isComposing || e.key === "Dead" || e.key === "Process");
     deadKeyInput.addEventListener("compositionend", async (e) => {
         deadKeyInput.value = "";
+        afterDeadKey = false;
         if (!e.data || ViewerApp.ViewOnlyMode) {
             return;
         }
@@ -682,6 +686,7 @@ export function ApplyInputHandlers() {
         const shiftRelease = releaseStuckShift(e);
         if (isDeadKeyEvent(e)) {
             // Pas de preventDefault : le navigateur compose dans deadKeyInput.
+            afterDeadKey = e.key === "Dead";
             return;
         }
         if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() == "v") {
@@ -697,6 +702,16 @@ export function ApplyInputHandlers() {
             e.preventDefault();
         }
         await shiftRelease;
+        if (afterDeadKey && e.key.length === 1) {
+            afterDeadKey = false;
+            altGrChars.add(e.key);
+            ViewerApp.ClipboardWatcher.FlushPendingText();
+            await ViewerApp.MessageSender.SendTextTransfer(e.key, true);
+            return;
+        }
+        if (e.key !== "Shift") {
+            afterDeadKey = false;
+        }
         // AltGr (AZERTY : @ # { [ | ` \ ^ ] } €) arrive côté distant comme Ctrl + Alt,
         // que l'agent ne sait pas rejouer (VkKeyScan renvoie les modificateurs dans
         // l'octet haut). On relâche Ctrl côté distant et on tape le caractère en Unicode.
