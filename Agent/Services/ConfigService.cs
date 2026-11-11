@@ -5,6 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 
 namespace Remotely.Agent.Services;
@@ -94,6 +97,8 @@ public class ConfigService : IConfigService
                         throw new InvalidOperationException("Config file does not exist.");
                     }
                     _connectionInfo = JsonSerializer.Deserialize<ConnectionInfo>(File.ReadAllText("ConnectionInfo.json"));
+                    // Installations antérieures : fichier lisible par tous, à resserrer.
+                    RestrictAccess("ConnectionInfo.json");
                 }
             }
         }
@@ -117,6 +122,47 @@ public class ConfigService : IConfigService
         {
             _connectionInfo = connectionInfo;
             File.WriteAllText("ConnectionInfo.json", JsonSerializer.Serialize(connectionInfo));
+            RestrictAccess("ConnectionInfo.json");
         }
+    }
+
+    // Le fichier contient le jeton du poste : lecture réservée au compte de l'agent
+    // (root : 600 ; Windows : SYSTEM et Administrateurs).
+    private void RestrictAccess(string path)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                // Un agent lancé sans élévation (essai à la main) se fermerait l'accès à son propre fichier.
+                if (Environment.IsPrivilegedProcess)
+                {
+                    RestrictAccessWindows(path);
+                }
+            }
+            else
+            {
+                File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Impossible de restreindre les droits de {path}.", path);
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void RestrictAccessWindows(string path)
+    {
+        var security = new FileSecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        foreach (var sidType in new[] { WellKnownSidType.LocalSystemSid, WellKnownSidType.BuiltinAdministratorsSid })
+        {
+            security.AddAccessRule(new FileSystemAccessRule(
+                new SecurityIdentifier(sidType, null),
+                FileSystemRights.FullControl,
+                AccessControlType.Allow));
+        }
+        new FileInfo(path).SetAccessControl(security);
     }
 }

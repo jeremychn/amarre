@@ -47,9 +47,10 @@ su - $Owner -c "brew install jq"
 
 
 if [ -f "$InstallDir/ConnectionInfo.json" ]; then
-    SavedGUID=`su - $Owner -c "cat '$InstallDir/ConnectionInfo.json' | jq -r '.DeviceID'"`
+    # Fichier lisible par root seulement : lu ici, jq lancé par le propriétaire de Homebrew
+    SavedGUID=`cat "$InstallDir/ConnectionInfo.json" | su - $Owner -c "jq -r '.DeviceID'"`
     # Mise à jour vers le même serveur : garder le jeton, sinon le poste ne se fait plus reconnaître.
-    SavedToken=`su - $Owner -c "cat '$InstallDir/ConnectionInfo.json'" | jq -r --arg h "$HostName" 'if (.Host // "" | rtrimstr("/")) == ($h | rtrimstr("/")) then (.ServerVerificationToken // "") else "" end'`
+    SavedToken=`cat "$InstallDir/ConnectionInfo.json" | jq -r --arg h "$HostName" 'if (.Host // "" | rtrimstr("/")) == ($h | rtrimstr("/")) then (.ServerVerificationToken // "") else "" end'`
     if [[ "$SavedGUID" != "null" && -n "$SavedGUID" ]]; then
         GUID="$SavedGUID"
     fi
@@ -85,7 +86,9 @@ connectionInfo="{
     \"ServerVerificationToken\":\"$SavedToken\"
 }"
 
-echo "$connectionInfo" > $InstallDir/ConnectionInfo.json
+# Contient le jeton du poste : lisible par root seulement
+(umask 077; echo "$connectionInfo" > $InstallDir/ConnectionInfo.json)
+chmod 600 $InstallDir/ConnectionInfo.json
 
 curl --head $HostName/Content/Remotely-MacOS-arm64.zip | grep -i "etag" | cut -d' ' -f 2 > $InstallDir/etag.txt
 

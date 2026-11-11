@@ -193,6 +193,8 @@ function Install-Remotely {
 	Remove-Item -Path $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
 
 	New-Item -ItemType File -Path "$InstallPath\ConnectionInfo.json" -Value (ConvertTo-Json -InputObject $ConnectionInfo) -Force
+	# Contient le jeton du poste : SYSTEM et Administrateurs seulement
+	& icacls.exe "$InstallPath\ConnectionInfo.json" /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" | Out-Null
 
 	New-Item -ItemType File -Path "$InstallPath\etag.txt" -Value $ETag -Force
 

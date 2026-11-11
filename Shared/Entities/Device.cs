@@ -86,6 +86,8 @@ public class Device
     [JsonIgnore]
     public List<ScriptSchedule> ScriptSchedules { get; set; } = new();
 
+    // Secret partagé avec l'agent : jamais renvoyé par l'API ni sérialisé en JSON.
+    [JsonIgnore]
     public string? ServerVerificationToken { get; set; }
 
     [StringLength(200)]

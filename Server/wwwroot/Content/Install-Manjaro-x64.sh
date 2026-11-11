@@ -82,7 +82,9 @@ connectionInfo="{
     \"ServerVerificationToken\":\"$SavedToken\"
 }"
 
-echo "$connectionInfo" > $InstallDir/ConnectionInfo.json
+# Contient le jeton du poste : lisible par root seulement
+(umask 077; echo "$connectionInfo" > $InstallDir/ConnectionInfo.json)
+chmod 600 $InstallDir/ConnectionInfo.json
 
 curl --head $HostName/Content/Remotely-Linux.zip | grep -i "etag" | cut -d' ' -f 2 > $InstallDir/etag.txt
 
