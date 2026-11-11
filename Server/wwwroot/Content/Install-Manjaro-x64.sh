@@ -21,7 +21,7 @@ do
         systemctl daemon-reload
         exit
     elif [ "${Args[$i]}" = "--path" ]; then
-        UpdatePackagePath="${Args[$i+1}"
+        UpdatePackagePath="${Args[$i+1]}"
     fi
 done
 
@@ -29,6 +29,10 @@ if [ -z "$ETag" ]; then
     echo  "ETag is empty.  Aborting install." | tee -a $LogPath
     exit 1
 fi
+
+# Dossier de travail propre à cette installation (nom aléatoire, droits 0700)
+WorkDir=$(mktemp -d)
+trap 'rm -rf "$WorkDir"' EXIT
 
 pacman -Sy
 pacman -S dotnet-runtime-8.0 --noconfirm
@@ -56,15 +60,18 @@ mkdir -p $InstallDir
 
 if [ -z "$UpdatePackagePath" ]; then
     echo  "Downloading client." | tee -a $LogPath
-    wget -q -O /tmp/Remotely-Linux.zip $HostName/Content/Remotely-Linux.zip
+    wget -q -O "$WorkDir/Remotely-Linux.zip" $HostName/Content/Remotely-Linux.zip
 else
     echo  "Copying install files." | tee -a $LogPath
-    cp "$UpdatePackagePath" /tmp/Remotely-Linux.zip
+    cp "$UpdatePackagePath" "$WorkDir/Remotely-Linux.zip"
     rm -f "$UpdatePackagePath"
+    # Dossier de mise à jour créé par l'agent : plus utile
+    UpdateDir=$(dirname "$UpdatePackagePath")
+    case "$(basename "$UpdateDir")" in amarre-maj-*) rm -rf "$UpdateDir" ;; esac
 fi
 
-unzip -o /tmp/Remotely-Linux.zip -d $InstallDir
-rm -f /tmp/Remotely-Linux.zip
+unzip -o "$WorkDir/Remotely-Linux.zip" -d $InstallDir
+rm -f "$WorkDir/Remotely-Linux.zip"
 chmod +x $InstallDir/Remotely_Agent
 chmod +x $InstallDir/Desktop/Remotely_Desktop
 
@@ -75,7 +82,9 @@ connectionInfo="{
     \"ServerVerificationToken\":\"$SavedToken\"
 }"
 
-echo "$connectionInfo" > $InstallDir/ConnectionInfo.json
+# Contient le jeton du poste : lisible par root seulement
+(umask 077; echo "$connectionInfo" > $InstallDir/ConnectionInfo.json)
+chmod 600 $InstallDir/ConnectionInfo.json
 
 curl --head $HostName/Content/Remotely-Linux.zip | grep -i "etag" | cut -d' ' -f 2 > $InstallDir/etag.txt
 

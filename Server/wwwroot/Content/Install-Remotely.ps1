@@ -158,19 +158,30 @@ function Install-Remotely {
 		$HostName = $HostName.Substring(0, $HostName.LastIndexOf("/"))
 	}
 
+	# Dossier de travail propre à cette installation : nom aléatoire, réservé à SYSTEM et aux Administrateurs
+	$WorkDir = Join-Path $env:TEMP ("amarre-" + [System.Guid]::NewGuid().ToString("N"))
+	New-Item -ItemType Directory -Path $WorkDir | Out-Null
+	& icacls.exe "$WorkDir" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
+	$ZipPath = Join-Path $WorkDir "Remotely-Win-$Platform.zip"
+
 	if ($Path) {
 		Write-Log "Copying install files..."
-		Copy-Item -Path $Path -Destination "$env:TEMP\Remotely-Win-$Platform.zip"
+		Copy-Item -Path $Path -Destination $ZipPath
+		# Dossier de mise à jour créé par l'agent : plus utile
+		$UpdateDir = Split-Path -Path $Path -Parent
+		if ((Split-Path -Path $UpdateDir -Leaf) -like "amarre-maj-*") {
+			Remove-Item -Path $UpdateDir -Recurse -Force -ErrorAction SilentlyContinue
+		}
 
 	}
 	else {
 		$ProgressPreference = 'SilentlyContinue'
 		Write-Log "Downloading client..."
-		Invoke-WebRequest -Uri "$HostName/Content/Remotely-Win-$Platform.zip" -OutFile "$env:TEMP\Remotely-Win-$Platform.zip" -UseBasicParsing
+		Invoke-WebRequest -Uri "$HostName/Content/Remotely-Win-$Platform.zip" -OutFile $ZipPath -UseBasicParsing
 		$ProgressPreference = 'Continue'
 	}
 
-	if (!(Test-Path -Path "$env:TEMP\Remotely-Win-$Platform.zip")) {
+	if (!(Test-Path -Path $ZipPath)) {
 		Write-Log "Client files failed to download."
 		Do-Exit
 	}
@@ -178,9 +189,12 @@ function Install-Remotely {
 	Stop-Remotely
 	Get-ChildItem -Path $InstallPath | Where-Object { $_.Name -notlike "ConnectionInfo.json" } | Remove-Item -Recurse -Force
 
-	Expand-Archive -Path "$env:TEMP\Remotely-Win-$Platform.zip" -DestinationPath "$InstallPath" -Force
+	Expand-Archive -Path $ZipPath -DestinationPath "$InstallPath" -Force
+	Remove-Item -Path $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
 
 	New-Item -ItemType File -Path "$InstallPath\ConnectionInfo.json" -Value (ConvertTo-Json -InputObject $ConnectionInfo) -Force
+	# Contient le jeton du poste : SYSTEM et Administrateurs seulement
+	& icacls.exe "$InstallPath\ConnectionInfo.json" /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" | Out-Null
 
 	New-Item -ItemType File -Path "$InstallPath\etag.txt" -Value $ETag -Force
 
@@ -193,7 +207,14 @@ function Install-Remotely {
 		}
 
 		$Body = $DeviceSetupOptions | ConvertTo-Json
-		Invoke-RestMethod -Method Post -ContentType "application/json" -Uri "$HostName/api/devices" -Body $Body
+		# Le serveur exige désormais une clé d'API pour cet appel : sans elle, l'installation continue
+		# et l'alias ou le groupe se règlent depuis la console.
+		try {
+			Invoke-RestMethod -Method Post -ContentType "application/json" -Uri "$HostName/api/devices" -Body $Body
+		}
+		catch {
+			Write-Log "Alias et groupe non appliqués (refusés par le serveur) : à régler depuis la console."
+		}
 	}
 
 	New-Service -Name "Remotely_Service" -BinaryPathName "`"$InstallPath\Remotely_Agent.exe`"" -DisplayName "Remotely Service" -StartupType Automatic -Description "Background service that maintains a connection to the Remotely server.  The service is used for remote support and maintenance by this computer's administrators."

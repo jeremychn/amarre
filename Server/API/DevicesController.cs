@@ -121,9 +121,23 @@ public class DevicesController : ControllerBase
         return Created(Request.GetDisplayUrl(), deviceResult.Value);
     }
 
+    // Création d'un appareil (alias, groupe) avant sa première connexion : clé d'API ou admin de
+    // l'organisation, qui est celle de l'appelant et non celle du corps de la requête.
     [HttpPost]
+    [ServiceFilter(typeof(ApiAuthorizationFilter))]
     public async Task<IActionResult> Create([FromBody] DeviceSetupOptions deviceOptions)
     {
+        if (!Request.Headers.TryGetOrganizationId(out var orgId))
+        {
+            return Unauthorized();
+        }
+
+        if (deviceOptions is null)
+        {
+            return BadRequest();
+        }
+
+        deviceOptions.OrganizationID = orgId;
         var result = await _dataService.CreateDevice(deviceOptions);
         _logger.LogResult(result);
 

@@ -56,7 +56,11 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public async Task DisconnectViewer(string viewerID, bool notifyViewer)
     {
-        ViewerList.Remove(viewerID);
+        // Seulement un lecteur de la session de cette connexion.
+        if (!ViewerList.Remove(viewerID))
+        {
+            return;
+        }
 
         if (notifyViewer)
         {
@@ -181,6 +185,11 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public async Task<Result<string>> PingViewer(string viewerConnectionId)
     {
+        if (!ViewerList.Contains(viewerConnectionId))
+        {
+            return Result.Fail<string>("Le lecteur ne fait pas partie de cette session.");
+        }
+
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -232,11 +241,20 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)
     {
-        return _viewerHub.Clients.Clients(viewerIDs).ConnectionFailed();
+        var targets = viewerIDs.Where(ViewerList.Contains).ToList();
+        if (targets.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+        return _viewerHub.Clients.Clients(targets).ConnectionFailed();
     }
 
     public Task SendConnectionRequestDenied(string viewerID)
     {
+        if (!ViewerList.Contains(viewerID))
+        {
+            return Task.CompletedTask;
+        }
         return _viewerHub.Clients.Client(viewerID).ConnectionRequestDenied();
     }
 
@@ -260,13 +278,23 @@ public class DesktopHub : Hub<IDesktopHubClient>
         }
     }
 
+    // Les messages vers un lecteur ne partent que s'il a rejoint la session de cette connexion
+    // (ViewerHub.SendScreenCastRequestToDevice l'ajoute à la liste avant de solliciter le poste).
     public Task SendDtoToViewer(byte[] dto, string viewerId)
     {
+        if (!ViewerList.Contains(viewerId))
+        {
+            return Task.CompletedTask;
+        }
         return _viewerHub.Clients.Client(viewerId).SendDtoToViewer(dto);
     }
 
     public Task SendMessageToViewer(string viewerId, string message)
     {
+        if (!ViewerList.Contains(viewerId))
+        {
+            return Task.CompletedTask;
+        }
         return _viewerHub.Clients.Client(viewerId).ShowMessage(message);
     }
 

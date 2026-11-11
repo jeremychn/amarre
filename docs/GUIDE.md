@@ -30,8 +30,8 @@ Ce guide couvre tout le cycle : installation du serveur, déploiement des agents
 - Viewer : mode de qualité d'image (Auto / Performance / Qualité), schéma et miniatures des écrans en multi-écran.
 - Bouton « Mettre à jour l'agent » sur chaque appareil, page **Sauvegarde** (export/restauration JSON).
 - **Actions groupées** sur l'accueil : cocher des postes (ou **Tout sélectionner**) fait apparaître une barre pour les réveiller (Wake-on-LAN, postes hors ligne), mettre à jour leur agent (postes en ligne), les changer de groupe, désinstaller leur agent ou les supprimer. Les deux dernières demandent confirmation. Chaque action ne touche que les postes auxquels l'utilisateur a droit.
-  - **Supprimer** retire seulement le poste de la liste : un agent encore installé revient à sa prochaine connexion, sans groupe ni alias.
-  - **Désinstaller l'agent** l'enlève du poste, puis supprime la fiche. Un poste hors ligne ne reçoit pas l'ordre : son agent reste installé et le poste reviendra.
+  - **Supprimer** efface la fiche et le jeton du poste. Un agent encore installé **ne peut plus se reconnecter** (il garde un jeton que le serveur n'a plus) : sur le poste, effacer `ServerVerificationToken` dans `ConnectionInfo.json` et redémarrer le service, ou désinstaller puis réinstaller l'agent. À réserver aux postes dont l'agent est déjà retiré.
+  - **Désinstaller l'agent** l'enlève du poste, puis supprime la fiche. Un poste hors ligne ne reçoit pas l'ordre : son agent reste installé et ne peut plus se reconnecter (même cas que **Supprimer**).
 - Agents Linux ARM64 (Raspberry Pi…) en plus de Windows, Linux x64 et macOS.
 - **Copier-coller direct** pendant la prise en main :
   - **Ctrl+V** dans le viewer colle le texte copié sur ton PC dans l'application distante ;
@@ -397,7 +397,7 @@ Ordre : serveur d'abord, agents ensuite (le serveur accepte les anciens agents).
 | `maj-agents.sh` : « Aucune release avec Content.zip » | Lancer la workflow à la main (Actions → Release → Run workflow) |
 | `@`, `#`, `{` ou pavé numérique sans effet ou faux sur le poste distant | Serveur antérieur à v1.6, ou ancien JS en cache (Ctrl+F5) |
 | Poste qui ne revient plus, journal serveur « Jeton d'agent absent ou faux » | Depuis v1.16, un poste passé en agent 1.16+ doit présenter son jeton. Agent réinstallé (jeton perdu) : supprimer l'appareil dans l'interface, il revient au prochain démarrage du service. Agent qui a gardé un jeton (mis à jour avant la v1.21) : ne pas supprimer ni désinstaller, la suppression le bloque définitivement ; effacer `ServerVerificationToken` dans son `ConnectionInfo.json` et redémarrer le service |
-| Poste qui ne revient plus, journal de l'agent « Le serveur ne connaît pas le jeton de ce poste » (journal serveur « inconnu du serveur mais déjà enrôlé ») | Depuis v1.19, l'agent vérifie le serveur sans lui envoyer son jeton. Appareil supprimé dans l'interface alors que l'agent tournait encore : réinstaller l'agent, ou effacer `ServerVerificationToken` dans `ConnectionInfo.json` et redémarrer le service. Sans suppression récente : le poste parle peut-être à un autre serveur que le vôtre |
+| Poste qui ne revient plus, journal de l'agent « Le serveur ne connaît pas le jeton de ce poste » (journal serveur « inconnu du serveur mais déjà enrôlé ») | Depuis v1.19, l'agent vérifie le serveur sans lui envoyer son jeton. Appareil supprimé dans l'interface alors que l'agent tournait encore : désinstaller puis réinstaller l'agent (une simple réinstallation garde le jeton), ou effacer `ServerVerificationToken` dans `ConnectionInfo.json` et redémarrer le service. Sans suppression récente : le poste parle peut-être à un autre serveur que le vôtre |
 | Tout le monde déconnecté après redémarrage | Volume `keys` absent |
 | Mauvaise URL ou http dans les installeurs | En-têtes `X-Forwarded-*`, `KnownProxies`, `DockerGatewayIp`, ou `Force Client HTTPS` |
 | Ctrl+V ne fait rien | Site pas en HTTPS, ou ancien JS en cache (Ctrl+F5) |

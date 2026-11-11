@@ -47,9 +47,10 @@ su - $Owner -c "brew install jq"
 
 
 if [ -f "$InstallDir/ConnectionInfo.json" ]; then
-    SavedGUID=`su - $Owner -c "cat '$InstallDir/ConnectionInfo.json' | jq -r '.DeviceID'"`
+    # Fichier lisible par root seulement : lu ici, jq lancé par le propriétaire de Homebrew
+    SavedGUID=`cat "$InstallDir/ConnectionInfo.json" | su - $Owner -c "jq -r '.DeviceID'"`
     # Mise à jour vers le même serveur : garder le jeton, sinon le poste ne se fait plus reconnaître.
-    SavedToken=`su - $Owner -c "cat '$InstallDir/ConnectionInfo.json'" | jq -r --arg h "$HostName" 'if (.Host // "" | rtrimstr("/")) == ($h | rtrimstr("/")) then (.ServerVerificationToken // "") else "" end'`
+    SavedToken=`cat "$InstallDir/ConnectionInfo.json" | jq -r --arg h "$HostName" 'if (.Host // "" | rtrimstr("/")) == ($h | rtrimstr("/")) then (.ServerVerificationToken // "") else "" end'`
     if [[ "$SavedGUID" != "null" && -n "$SavedGUID" ]]; then
         GUID="$SavedGUID"
     fi
@@ -62,12 +63,15 @@ mkdir -p $InstallDir
 chmod -R 755 $InstallDir
 
 if [ -z "$UpdatePackagePath" ]; then
-    echo  "Downloading client..." >> /tmp/Remotely_Install.log
+    echo  "Downloading client..." | tee -a $LogPath
     curl $HostName/Content/Remotely-MacOS-arm64.zip --output $InstallDir/Remotely-MacOS-arm64.zip
 else
-    echo  "Copying install files..." >> /tmp/Remotely_Install.log
+    echo  "Copying install files..." | tee -a $LogPath
     cp "$UpdatePackagePath" $InstallDir/Remotely-MacOS-arm64.zip
     rm -f "$UpdatePackagePath"
+    # Dossier de mise à jour créé par l'agent : plus utile
+    UpdateDir=$(dirname "$UpdatePackagePath")
+    case "$(basename "$UpdateDir")" in amarre-maj-*) rm -rf "$UpdateDir" ;; esac
 fi
 
 unzip -o $InstallDir/Remotely-MacOS-arm64.zip -d $InstallDir
@@ -82,7 +86,9 @@ connectionInfo="{
     \"ServerVerificationToken\":\"$SavedToken\"
 }"
 
-echo "$connectionInfo" > $InstallDir/ConnectionInfo.json
+# Contient le jeton du poste : lisible par root seulement
+(umask 077; echo "$connectionInfo" > $InstallDir/ConnectionInfo.json)
+chmod 600 $InstallDir/ConnectionInfo.json
 
 curl --head $HostName/Content/Remotely-MacOS-arm64.zip | grep -i "etag" | cut -d' ' -f 2 > $InstallDir/etag.txt
 

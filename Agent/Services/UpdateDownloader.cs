@@ -26,7 +26,13 @@ public class UpdateDownloader : IUpdateDownloader
         client.Timeout = _timeout;
 
         using var downloadStream = await client.GetStreamAsync(downloadUrl);
-        using var fileStream = new FileStream(filePath, FileMode.Create);
+        // CreateNew : jamais un fichier déjà présent (le chemin vient de UpdateWorkDirectory).
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
+        if (!OperatingSystem.IsWindows())
+        {
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+        using var fileStream = new FileStream(filePath, options);
 
         await downloadStream.CopyToAsync(fileStream);
     }

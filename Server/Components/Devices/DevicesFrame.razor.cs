@@ -466,7 +466,10 @@ public partial class DevicesFrame : AuthComponentBase
     private async Task UninstallSelected()
     {
         var ids = CardStore.SelectedDevices.ToArray();
-        if (!await JsInterop.Confirm($"Désinstaller l'agent de {ids.Length} poste(s) ? C'est définitif."))
+        if (!await JsInterop.Confirm(
+            $"Désinstaller l'agent de {ids.Length} poste(s) ? C'est définitif.\n\n" +
+            "Un poste hors ligne ne reçoit pas l'ordre : son agent reste installé et ne pourra plus se reconnecter " +
+            "(même cas que « Supprimer »)."))
         {
             return;
         }
@@ -479,7 +482,10 @@ public partial class DevicesFrame : AuthComponentBase
     {
         var ids = CardStore.SelectedDevices.ToArray();
         if (!await JsInterop.Confirm(
-            $"Supprimer {ids.Length} poste(s) de la liste ? Un agent encore installé réapparaîtra à sa prochaine connexion."))
+            $"Supprimer {ids.Length} poste(s) ? La fiche est effacée avec le jeton du poste.\n\n" +
+            "Un agent encore installé qui a son jeton (1.19 ou plus) ne pourra plus se reconnecter : il faudra, sur le poste, effacer " +
+            "ServerVerificationToken dans ConnectionInfo.json et redémarrer le service, ou désinstaller puis " +
+            "réinstaller l'agent. Pour retirer un poste, préférer « Désinstaller l'agent » pendant qu'il est en ligne."))
         {
             return;
         }

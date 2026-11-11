@@ -110,7 +110,7 @@ public class ScriptingController : ControllerBase
         AgentHub.ApiScriptResults.Remove(requestID);
 
         var scriptResult = await _dataService.GetScriptResult($"{commandId}", orgId);
-        if (!scriptResult.IsSuccess)
+        if (!scriptResult.IsSuccess || !string.Equals(scriptResult.Value.DeviceID, deviceID, StringComparison.OrdinalIgnoreCase))
         {
             return NotFound();
         }

@@ -319,6 +319,17 @@ public class ViewerHub : Hub<IViewerHubClient>
 
     public async Task StoreSessionRecording(IAsyncEnumerable<byte[]> webmStream)
     {
+        // Enregistrement seulement s'il est activé, pour un lecteur qui a rejoint une session,
+        // et un seul à la fois par connexion.
+        var settings = await _dataService.GetSettings();
+        if (!settings.EnableRemoteControlRecording ||
+            !SessionInfo.ViewerList.Contains(Context.ConnectionId) ||
+            !Context.Items.TryAdd(RecordingKey, true))
+        {
+            _logger.LogWarning("Enregistrement de session refusé pour la connexion {connectionId}.", Context.ConnectionId);
+            return;
+        }
+
         try
         {
             await _sessionRecordingSink.SinkWebmStream(webmStream, SessionInfo);
@@ -331,6 +342,12 @@ public class ViewerHub : Hub<IViewerHubClient>
         {
             _logger.LogError(ex, "Error while storing session recording for stream {streamId}.", SessionInfo.StreamId);
         }
+        finally
+        {
+            Context.Items.Remove(RecordingKey);
+        }
     }
+
+    private const string RecordingKey = "SessionRecording";
 
 }
