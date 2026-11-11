@@ -511,12 +511,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
             foreach (var device in availableDevices)
             {
+                // Indexé par groupe et par IP : presque tous les postes sont dans un groupe
+                // (groupe par défaut), la correspondance par IP doit rester possible.
                 if (!string.IsNullOrWhiteSpace(device.DeviceGroupID))
                 {
                     var group = devicesByGroupId.GetOrAdd(device.DeviceGroupID, key => new());
                     group.Add(device);
-                    // Un poste n'a besoin d'être que dans une seule liste.
-                    continue;
                 }
 
                 if (!string.IsNullOrWhiteSpace(device.PublicIP))
@@ -528,18 +528,22 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
             foreach (var deviceToWake in filteredDevices)
             {
+                var peers = new List<Device>();
+
                 if (!string.IsNullOrWhiteSpace(deviceToWake.DeviceGroupID) &&
                     devicesByGroupId.TryGetValue(deviceToWake.DeviceGroupID, out var groupList))
                 {
-                    await SendWakeCommand(deviceToWake, groupList);
+                    peers.AddRange(groupList);
                 }
 
                 if (!string.IsNullOrWhiteSpace(deviceToWake.PublicIP) &&
                     devicesByPublicIp.TryGetValue(deviceToWake.PublicIP, out var ipList))
                 {
-                    await SendWakeCommand(deviceToWake, ipList);
+                    peers.AddRange(ipList);
                 }
 
+                // Un pair du même groupe et de la même IP ne reçoit la commande qu'une fois.
+                await SendWakeCommand(deviceToWake, peers.Distinct());
             }
             return Result.Ok();
         }

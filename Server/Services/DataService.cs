@@ -289,6 +289,8 @@ public class DataService : IDataService
         dbContext.Attach(deviceGroup);
         deviceGroup.Organization = organization;
         deviceGroup.OrganizationID = orgId;
+        // Le groupe par défaut est créé avec l'organisation, jamais depuis la console ou l'API.
+        deviceGroup.IsDefault = false;
 
         organization.DeviceGroups ??= new List<DeviceGroup>();
         organization.DeviceGroups.Add(deviceGroup);
@@ -357,6 +359,7 @@ public class DataService : IDataService
         using var dbContext = _appDbFactory.GetContext();
 
         var device = await dbContext.Devices.FindAsync(deviceDto.ID);
+        var isNewDevice = device is null;
 
         if (device is null)
         {
@@ -404,6 +407,14 @@ public class DataService : IDataService
                 device.ID);
 
             return Result.Fail<Device>("Cette organisation n'existe pas.");
+        }
+
+        // Poste enregistré pour la première fois : groupe par défaut. Un poste existant garde son groupe
+        // (ou son absence de groupe si l'admin l'a retiré du groupe par défaut).
+        if (isNewDevice && string.IsNullOrWhiteSpace(device.DeviceGroupID))
+        {
+            var defaultGroup = await GetOrCreateDefaultDeviceGroup(dbContext, device.OrganizationID);
+            device.DeviceGroupID = defaultGroup.ID;
         }
 
         await dbContext.SaveChangesAsync();
@@ -624,12 +635,20 @@ public class DataService : IDataService
     {
         using var dbContext = _appDbFactory.GetContext();
 
-        var targetUser = await dbContext.Users.FirstOrDefaultAsync(x =>
-                            x.OrganizationID == organizationId &&
-                            x.Id == targetUserId);
+        var targetUser = await dbContext.Users
+            .Include(x => x.DeviceGroups)
+            .FirstOrDefaultAsync(x =>
+                x.OrganizationID == organizationId &&
+                x.Id == targetUserId);
 
         if (targetUser != null)
         {
+            // Un administrateur qui perd ses droits garde l'accès aux postes du groupe par défaut.
+            if (targetUser.IsAdministrator && !isAdmin)
+            {
+                await AddUserToDefaultDeviceGroup(dbContext, targetUser, organizationId);
+            }
+
             targetUser.IsAdministrator = isAdmin;
             dbContext.SaveChanges();
         }
@@ -729,6 +748,12 @@ public class DataService : IDataService
                 device.DeviceGroup = group;
             }
 
+            // Sans groupe demandé (ou groupe inconnu) : groupe par défaut de l'organisation.
+            if (device.DeviceGroup is null)
+            {
+                device.DeviceGroup = await GetOrCreateDefaultDeviceGroup(dbContext, device.OrganizationID);
+            }
+
             dbContext.Devices.Add(device);
 
             await dbContext.SaveChangesAsync();
@@ -768,6 +793,12 @@ public class DataService : IDataService
 
             dbContext.Users.Add(user);
             org.RemotelyUsers.Add(user);
+
+            if (!isAdmin)
+            {
+                await AddUserToDefaultDeviceGroup(dbContext, user, organizationId);
+            }
+
             await dbContext.SaveChangesAsync();
             return Result.Ok();
         }
@@ -847,6 +878,13 @@ public class DataService : IDataService
         if (deviceGroup is null)
         {
             return Result.Fail("Groupe d'appareils introuvable.");
+        }
+
+        if (deviceGroup.IsDefault)
+        {
+            return Result.Fail(
+                $"« {deviceGroup.Name} » est le groupe par défaut de l'organisation : il ne peut pas être supprimé. " +
+                "Retirez-en les appareils ou les utilisateurs un par un si besoin.");
         }
 
         deviceGroup.Devices.ForEach(x =>
@@ -1853,6 +1891,7 @@ public class DataService : IDataService
         }
 
         var user = await dbContext.Users
+            .Include(x => x.DeviceGroups)
             .FirstOrDefaultAsync(x => x.UserName == userName);
 
         if (user is null)
@@ -1869,10 +1908,18 @@ public class DataService : IDataService
             return Result.Fail("Organisation introuvable.");
         }
 
+        // Les groupes de l'ancienne organisation ne suivent pas l'utilisateur.
+        user.DeviceGroups.RemoveAll(x => x.OrganizationID != organization.ID);
+
         user.Organization = organization;
         user.OrganizationID = organization.ID;
         user.IsAdministrator = invite.IsAdmin;
         organization.RemotelyUsers.Add(user);
+
+        if (!invite.IsAdmin)
+        {
+            await AddUserToDefaultDeviceGroup(dbContext, user, organization.ID);
+        }
 
         await dbContext.SaveChangesAsync();
 
@@ -2281,6 +2328,41 @@ public class DataService : IDataService
 
         await dbContext.SaveChangesAsync();
         return sharedFile.ID;
+    }
+
+    private static async Task AddUserToDefaultDeviceGroup(AppDb dbContext, RemotelyUser user, string organizationId)
+    {
+        var defaultGroup = await GetOrCreateDefaultDeviceGroup(dbContext, organizationId);
+        if (!user.DeviceGroups.Any(x => x.ID == defaultGroup.ID))
+        {
+            user.DeviceGroups.Add(defaultGroup);
+        }
+    }
+
+    /// <summary>
+    /// Groupe par défaut de l'organisation. Créé avec l'organisation (AppDb) ou par la migration
+    /// pour les organisations existantes ; recréé ici seulement s'il manque.
+    /// </summary>
+    private static async Task<DeviceGroup> GetOrCreateDefaultDeviceGroup(AppDb dbContext, string organizationId)
+    {
+        var defaultGroup = await dbContext.DeviceGroups
+            .Where(x => x.OrganizationID == organizationId && x.IsDefault)
+            .OrderBy(x => x.ID)
+            .FirstOrDefaultAsync();
+
+        if (defaultGroup is not null)
+        {
+            return defaultGroup;
+        }
+
+        defaultGroup = new DeviceGroup()
+        {
+            Name = DeviceGroup.DefaultGroupName,
+            IsDefault = true,
+            OrganizationID = organizationId
+        };
+        dbContext.DeviceGroups.Add(defaultGroup);
+        return defaultGroup;
     }
 
     private string[] FilterUsersByDevicePermissionInternal(AppDb dbContext, IEnumerable<string> userIDs, string deviceID)

@@ -65,7 +65,7 @@ else if (User is not null)
                 <select class="form-control mb-1" @bind="_selectedDeviceGroupId" size="4">
                     @foreach (var deviceGroup in _deviceGroups)
                     {
-                        <option @key="deviceGroup.ID" value="@deviceGroup.ID">@deviceGroup.Name</option>
+                        <option @key="deviceGroup.ID" value="@deviceGroup.ID">@(deviceGroup.IsDefault ? $"{deviceGroup.Name} (par défaut)" : deviceGroup.Name)</option>
                     }
                 </select>
 
