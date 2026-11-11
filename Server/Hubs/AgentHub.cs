@@ -277,7 +277,10 @@ public class AgentHub : Hub<IAgentHubClient>
 
         _logger.LogWarning(
             "Jeton d'agent absent ou faux pour {DeviceId} ({DeviceName}, {PublicIp}, agent {AgentVersion}) : connexion refusée. " +
-            "Agent réinstallé sur ce poste : supprimer l'appareil dans l'interface.",
+            (string.IsNullOrEmpty(device.ServerVerificationToken)
+                ? "Agent réinstallé sans son jeton : supprimer l'appareil dans l'interface le laisse revenir."
+                : "Agent avec un autre jeton : ne pas seulement supprimer l'appareil (le poste resterait bloqué) ; " +
+                  "sur le poste, effacer ServerVerificationToken dans ConnectionInfo.json, redémarrer le service, puis supprimer l'appareil."),
             device.ID, device.DeviceName, device.PublicIP, device.AgentVersion);
         return false;
     }
@@ -309,7 +312,7 @@ public class AgentHub : Hub<IAgentHubClient>
         {
             _logger.LogWarning(
                 "Poste {DeviceId} ({DeviceName}) inconnu du serveur mais déjà enrôlé : il refusera ce serveur. " +
-                "Réinstaller l'agent, ou effacer ServerVerificationToken dans son ConnectionInfo.json.",
+                "Désinstaller puis réinstaller l'agent, ou effacer ServerVerificationToken dans son ConnectionInfo.json et redémarrer le service.",
                 Device.ID, Device.DeviceName);
             return string.Empty;
         }

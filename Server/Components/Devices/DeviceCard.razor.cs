@@ -368,7 +368,9 @@ public partial class DeviceCard : AuthComponentBase
 
     private async Task UninstallAgent()
     {
-        var result = await JsInterop.Confirm("Désinstaller l'agent de ce poste ? C'est définitif.");
+        var result = await JsInterop.Confirm(
+            "Désinstaller l'agent de ce poste ? C'est définitif.\n\n" +
+            "Poste hors ligne : il ne reçoit pas l'ordre, son agent reste installé et ne pourra plus se reconnecter.");
         if (result)
         {
             await CircuitConnection.UninstallAgents(new[] { Device.ID });

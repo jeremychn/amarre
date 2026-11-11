@@ -749,7 +749,7 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
             {
                 _logger.LogWarning(
                     "Le serveur ne connaît pas le jeton de ce poste : connexion refusée. " +
-                    "Faux serveur, ou appareil supprimé côté serveur (réinstaller l'agent ou effacer ServerVerificationToken dans ConnectionInfo.json).");
+                    "Faux serveur, ou appareil supprimé côté serveur (désinstaller puis réinstaller l'agent, ou effacer ServerVerificationToken dans ConnectionInfo.json et redémarrer le service).");
                 return false;
             }
         }
