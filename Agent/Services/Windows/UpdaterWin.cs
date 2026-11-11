@@ -123,6 +123,7 @@ public class UpdaterWin : IUpdater
 
     public async Task InstallLatestVersion()
     {
+        string? workDir = null;
         try
         {
             await _installLatestVersionLock.WaitAsync();
@@ -132,9 +133,10 @@ public class UpdaterWin : IUpdater
 
             _logger.LogInformation("Service Updater: Downloading install package.");
 
-            var zipPath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.zip");
+            workDir = UpdateWorkDirectory.Create();
+            var zipPath = Path.Combine(workDir, "RemotelyUpdate.zip");
 
-            var installerPath = Path.Combine(Path.GetTempPath(), "Install-Remotely.ps1");
+            var installerPath = Path.Combine(workDir, "Install-Remotely.ps1");
             var platform = Environment.Is64BitOperatingSystem ? "x64" : "x86";
 
             await _updateDownloader.DownloadFile(
@@ -147,20 +149,28 @@ public class UpdaterWin : IUpdater
 
             _logger.LogInformation("Launching installer to perform update.");
 
-            Process.Start(
-                "powershell.exe", 
-                $"-ExecutionPolicy Bypass -File \"{installerPath}\" -Path \"{zipPath}\" " +
-                    $"-OrganizationId {connectionInfo.OrganizationID} -ServerUrl {connectionInfo.Host}");
+            var startInfo = new ProcessStartInfo("powershell.exe");
+            foreach (var arg in new[]
+            {
+                "-ExecutionPolicy", "Bypass", "-File", installerPath, "-Path", zipPath,
+                "-OrganizationId", connectionInfo.OrganizationID ?? "", "-ServerUrl", connectionInfo.Host ?? ""
+            })
+            {
+                startInfo.ArgumentList.Add(arg);
+            }
+            Process.Start(startInfo);
         }
         catch (WebException ex) when (ex.Status == WebExceptionStatus.Timeout)
         {
             _logger.LogWarning("Timed out while waiting to download update.");
             _lastUpdateFailure = DateTimeOffset.Now;
+            UpdateWorkDirectory.TryDelete(workDir);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while installing latest version.");
             _lastUpdateFailure = DateTimeOffset.Now;
+            UpdateWorkDirectory.TryDelete(workDir);
         }
         finally
         {

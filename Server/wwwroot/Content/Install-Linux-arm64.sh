@@ -33,6 +33,10 @@ if [ -z "$ETag" ]; then
     exit 1
 fi
 
+# Dossier de travail propre à cette installation (nom aléatoire, droits 0700)
+WorkDir=$(mktemp -d)
+trap 'rm -rf "$WorkDir"' EXIT
+
 apt-get -y install apt-transport-https
 apt-get -y install dotnet-runtime-8.0
 apt-get -y install libx11-dev
@@ -60,15 +64,18 @@ mkdir -p $InstallDir
 
 if [ -z "$UpdatePackagePath" ]; then
     echo  "Downloading client." | tee -a $LogPath
-    wget -q -O /tmp/Remotely-Linux-arm64.zip $HostName/Content/Remotely-Linux-arm64.zip
+    wget -q -O "$WorkDir/Remotely-Linux-arm64.zip" $HostName/Content/Remotely-Linux-arm64.zip
 else
     echo  "Copying install files." | tee -a $LogPath
-    cp "$UpdatePackagePath" /tmp/Remotely-Linux-arm64.zip
+    cp "$UpdatePackagePath" "$WorkDir/Remotely-Linux-arm64.zip"
     rm -f "$UpdatePackagePath"
+    # Dossier de mise à jour créé par l'agent : plus utile
+    UpdateDir=$(dirname "$UpdatePackagePath")
+    case "$(basename "$UpdateDir")" in amarre-maj-*) rm -rf "$UpdateDir" ;; esac
 fi
 
-unzip -o /tmp/Remotely-Linux-arm64.zip -d $InstallDir
-rm -f /tmp/Remotely-Linux-arm64.zip
+unzip -o "$WorkDir/Remotely-Linux-arm64.zip" -d $InstallDir
+rm -f "$WorkDir/Remotely-Linux-arm64.zip"
 chmod +x $InstallDir/Remotely_Agent
 chmod +x $InstallDir/Desktop/Remotely_Desktop
 

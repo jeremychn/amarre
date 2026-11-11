@@ -125,6 +125,7 @@ public class UpdaterMac : IUpdater
 
     public async Task InstallLatestVersion()
     {
+        string? workDir = null;
         try
         {
             await _installLatestVersionLock.WaitAsync();
@@ -134,9 +135,10 @@ public class UpdaterMac : IUpdater
 
             _logger.LogInformation("Service Updater: Downloading install package.");
 
-            var zipPath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.zip");
+            workDir = UpdateWorkDirectory.Create();
+            var zipPath = Path.Combine(workDir, "RemotelyUpdate.zip");
 
-            var installerPath = Path.Combine(Path.GetTempPath(), "RemotelyUpdate.sh");
+            var installerPath = Path.Combine(workDir, "RemotelyUpdate.sh");
 
             await _updateDownloader.DownloadFile(
                    $"{serverUrl}/API/ClientDownloads/MacOSInstaller-{_achitecture}/{connectionInfo.OrganizationID}",
@@ -148,19 +150,24 @@ public class UpdaterMac : IUpdater
 
             _logger.LogInformation("Launching installer to perform update.");
 
-            Process.Start("sudo", $"chmod +x {installerPath}").WaitForExit();
-
-            Process.Start("sudo", $"{installerPath} --path {zipPath}");
+            var startInfo = new ProcessStartInfo("sudo");
+            foreach (var arg in new[] { "/bin/bash", installerPath, "--path", zipPath })
+            {
+                startInfo.ArgumentList.Add(arg);
+            }
+            Process.Start(startInfo);
         }
         catch (WebException ex) when (ex.Status == WebExceptionStatus.Timeout)
         {
             _logger.LogWarning("Timed out while waiting to download update.");
             _lastUpdateFailure = DateTimeOffset.Now;
+            UpdateWorkDirectory.TryDelete(workDir);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while installing latest version.");
             _lastUpdateFailure = DateTimeOffset.Now;
+            UpdateWorkDirectory.TryDelete(workDir);
         }
         finally
         {

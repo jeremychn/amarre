@@ -62,12 +62,15 @@ mkdir -p $InstallDir
 chmod -R 755 $InstallDir
 
 if [ -z "$UpdatePackagePath" ]; then
-    echo  "Downloading client..." >> /tmp/Remotely_Install.log
+    echo  "Downloading client..." | tee -a $LogPath
     curl $HostName/Content/Remotely-MacOS-x64.zip --output $InstallDir/Remotely-MacOS-x64.zip
 else
-    echo  "Copying install files..." >> /tmp/Remotely_Install.log
+    echo  "Copying install files..." | tee -a $LogPath
     cp "$UpdatePackagePath" $InstallDir/Remotely-MacOS-x64.zip
     rm -f "$UpdatePackagePath"
+    # Dossier de mise à jour créé par l'agent : plus utile
+    UpdateDir=$(dirname "$UpdatePackagePath")
+    case "$(basename "$UpdateDir")" in amarre-maj-*) rm -rf "$UpdateDir" ;; esac
 fi
 
 unzip -o $InstallDir/Remotely-MacOS-x64.zip -d $InstallDir
