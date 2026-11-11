@@ -207,7 +207,14 @@ function Install-Remotely {
 		}
 
 		$Body = $DeviceSetupOptions | ConvertTo-Json
-		Invoke-RestMethod -Method Post -ContentType "application/json" -Uri "$HostName/api/devices" -Body $Body
+		# Le serveur exige désormais une clé d'API pour cet appel : sans elle, l'installation continue
+		# et l'alias ou le groupe se règlent depuis la console.
+		try {
+			Invoke-RestMethod -Method Post -ContentType "application/json" -Uri "$HostName/api/devices" -Body $Body
+		}
+		catch {
+			Write-Log "Alias et groupe non appliqués (refusés par le serveur) : à régler depuis la console."
+		}
 	}
 
 	New-Service -Name "Remotely_Service" -BinaryPathName "`"$InstallPath\Remotely_Agent.exe`"" -DisplayName "Remotely Service" -StartupType Automatic -Description "Background service that maintains a connection to the Remotely server.  The service is used for remote support and maintenance by this computer's administrators."
