@@ -2300,14 +2300,9 @@ public class DataService : IDataService
                 user.OrganizationID == device.OrganizationID &&
                 userIDs.Contains(user.Id));
 
-        if (string.IsNullOrWhiteSpace(device.DeviceGroupID))
-        {
-            return orgUsers
-                .Select(x => x.Id)
-                .ToArray();
-        }
-
-        var allowedUsers = device?.DeviceGroup?.Users?.Select(x => x.Id) ?? Array.Empty<string>();
+        // Même règle que GetDevicesForUser et DoesUserHaveAccessToDevice : un appareil sans groupe
+        // n'est visible que des administrateurs de l'organisation.
+        var allowedUsers = device.DeviceGroup?.Users?.Select(x => x.Id).ToArray() ?? Array.Empty<string>();
 
         return orgUsers
             .Where(user =>

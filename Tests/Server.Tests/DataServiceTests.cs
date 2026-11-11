@@ -119,6 +119,116 @@ public class DataServiceTests
     }
 
     [TestMethod]
+    public async Task AddAlert_DeviceWithoutGroup_OnlyAdminsReceiveAlert()
+    {
+        await _dataService.AddAlert(_testData.Org1Device1.ID, _testData.Org1Id, "Ungrouped");
+
+        Assert.AreEqual(1, _dataService.GetAlerts(_testData.Org1Admin1.Id).Length);
+        Assert.AreEqual(1, _dataService.GetAlerts(_testData.Org1Admin2.Id).Length);
+        Assert.AreEqual(0, _dataService.GetAlerts(_testData.Org1User1.Id).Length);
+        Assert.AreEqual(0, _dataService.GetAlerts(_testData.Org1User2.Id).Length);
+        Assert.AreEqual(0, _dataService.GetAlerts(_testData.Org2Admin1.Id).Length);
+    }
+
+    [TestMethod]
+    public void FilterUsersByDevicePermission_DeviceWithoutGroup_ReturnsOnlyOrgAdmins()
+    {
+        var filtered = _dataService.FilterUsersByDevicePermission(AllUserIds(), _testData.Org1Device1.ID);
+
+        CollectionAssert.AreEquivalent(
+            new[] { _testData.Org1Admin1.Id, _testData.Org1Admin2.Id },
+            filtered);
+    }
+
+    [TestMethod]
+    public void FilterUsersByDevicePermission_DeviceInGroup_ReturnsAdminsAndGroupMembers()
+    {
+        var groupID = _testData.Org1Group1.ID;
+        _dataService.AddUserToDeviceGroup(_testData.Org1Id, groupID, _testData.Org1User1.UserName!, out _);
+        _dataService.UpdateDevice(_testData.Org1Device1.ID, "", "", groupID, "");
+
+        var filtered = _dataService.FilterUsersByDevicePermission(AllUserIds(), _testData.Org1Device1.ID);
+
+        CollectionAssert.AreEquivalent(
+            new[] { _testData.Org1Admin1.Id, _testData.Org1Admin2.Id, _testData.Org1User1.Id },
+            filtered);
+    }
+
+    [TestMethod]
+    public void FilterUsersByDevicePermission_UnknownDevice_ReturnsEmpty()
+    {
+        var filtered = _dataService.FilterUsersByDevicePermission(AllUserIds(), "UnknownDeviceId");
+
+        Assert.AreEqual(0, filtered.Length);
+    }
+
+    [TestMethod]
+    public void FilterUsersByDevicePermission_MatchesDeviceList()
+    {
+        // Les notifications doivent suivre exactement la règle de la liste des appareils.
+        AssertNotificationsMatchDeviceList();
+
+        var groupID = _testData.Org1Group1.ID;
+        _dataService.AddUserToDeviceGroup(_testData.Org1Id, groupID, _testData.Org1User1.UserName!, out _);
+        _dataService.UpdateDevice(_testData.Org1Device1.ID, "", "", groupID, "");
+
+        AssertNotificationsMatchDeviceList();
+    }
+
+    private string[] AllUserIds()
+    {
+        return AllUsers().Select(x => x.Id).ToArray();
+    }
+
+    private RemotelyUser[] AllUsers()
+    {
+        return new[]
+        {
+            _testData.Org1Admin1,
+            _testData.Org1Admin2,
+            _testData.Org1User1,
+            _testData.Org1User2,
+            _testData.Org2Admin1,
+            _testData.Org2Admin2,
+            _testData.Org2User1,
+            _testData.Org2User2
+        };
+    }
+
+    private void AssertNotificationsMatchDeviceList()
+    {
+        var devices = new[]
+        {
+            _testData.Org1Device1,
+            _testData.Org1Device2,
+            _testData.Org2Device1,
+            _testData.Org2Device2
+        };
+
+        foreach (var device in devices)
+        {
+            var notified = _dataService.FilterUsersByDevicePermission(AllUserIds(), device.ID);
+
+            foreach (var user in AllUsers())
+            {
+                var listed = _dataService
+                    .GetDevicesForUser(user.UserName!)
+                    .Any(x => x.ID == device.ID);
+
+                Assert.AreEqual(
+                    listed,
+                    notified.Contains(user.Id),
+                    $"Appareil {device.ID}, utilisateur {user.UserName}");
+
+                Assert.AreEqual(
+                    listed,
+                    _dataService.DoesUserHaveAccessToDevice(device.ID, user),
+                    $"Appareil {device.ID}, utilisateur {user.UserName}");
+            }
+        }
+    }
+
+    [TestMethod]
     public async Task GetPendingScriptRuns_GivenMultipleRunsQueued_ReturnsOnlyLatest()
     {
         var now = Time.Now;
