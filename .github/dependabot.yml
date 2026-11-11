@@ -1,11 +1,67 @@
-# Une PR par semaine si une action GitHub utilisée par la CI a une nouvelle version.
-# Les failles NuGet et de l'image sont déjà bloquées par build.yml (chaque lundi et avant chaque release).
+# Mises à jour chaque lundi, en PR groupées par écosystème : une pour les mineures et correctifs,
+# une pour les majeures. Les mineures et correctifs se fusionnent d'eux-mêmes quand le contrôle
+# Build est vert (dependabot-fusion.yml) ; les majeures attendent une fusion à la main.
+# Les failles NuGet et de l'image restent bloquées par build.yml (chaque lundi et avant chaque release).
+#
+# Paquets et image liés à la version de .NET (net10.0, SDK 10.0.x de la CI) : pas de majeure proposée,
+# le passage à une nouvelle version de .NET se fait d'un bloc, à la main.
 version: 2
 updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Europe/Paris
+    ignore:
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
+        update-types: ["version-update:semver-major"]
+    groups:
+      nuget-mineures:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      nuget-majeures:
+        patterns: ["*"]
+        update-types: ["major"]
+
+  - package-ecosystem: docker
+    directory: /Server
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Europe/Paris
+    ignore:
+      - dependency-name: "dotnet/aspnet"
+        update-types: ["version-update:semver-major"]
+    groups:
+      docker-mineures:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      docker-majeures:
+        patterns: ["*"]
+        update-types: ["major"]
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Europe/Paris
     groups:
-      actions:
+      actions-mineures:
         patterns: ["*"]
+        update-types: ["minor", "patch"]
+      actions-majeures:
+        patterns: ["*"]
+        update-types: ["major"]

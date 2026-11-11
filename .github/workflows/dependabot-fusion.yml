@@ -1,0 +1,63 @@
+# Fusionne les PR de Dependabot de type mineur ou correctif dès que le contrôle Build est vert.
+# Les majeures restent ouvertes pour une fusion à la main.
+#
+# Déclenché par workflow_run : tourne dans le contexte du dépôt, sur le code de main. Le code de la PR
+# n'est jamais extrait ni exécuté ; seules les métadonnées (auteur, commit, message) sont lues par l'API.
+# Le type de mise à jour vient des lignes « update-type: version-update:semver-… » que Dependabot
+# écrit dans son message de commit : sans elles, ou avec une majeure, rien n'est fusionné.
+name: Fusion Dependabot
+
+on:
+  workflow_run:
+    workflows: [Build]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fusion:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Fusionner si mineure ou correctif
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+
+          # PR ouverte de Dependabot vers main, dont la tête est bien le commit contrôlé
+          pr=$(gh pr list --repo "$REPO" --state open --base main --head "$HEAD_BRANCH" \
+                 --json number,author,headRefOid \
+                 --jq "map(select((.author.login | test(\"^(app/)?dependabot(\\\\[bot\\\\])?$\")) and .headRefOid == \"$HEAD_SHA\")) | .[0].number // empty")
+          if [ -z "$pr" ]; then
+            echo "::notice title=Fusion Dependabot::Aucune PR Dependabot ouverte sur $HEAD_BRANCH à ce commit."
+            exit 0
+          fi
+
+          # Tous les commits de la PR viennent de Dependabot (personne n'a poussé dessus)
+          autres=$(gh api "repos/$REPO/pulls/$pr/commits" --paginate \
+                     --jq '.[] | select(.author.login != "dependabot[bot]") | .sha')
+          if [ -n "$autres" ]; then
+            echo "::notice title=Fusion Dependabot::PR #$pr : commits d'un autre auteur, fusion à la main."
+            exit 0
+          fi
+
+          types=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.message' \
+                    | sed -n 's/^[[:space:]]*update-type:[[:space:]]*//p' | sort -u)
+          echo "PR #$pr, types : ${types:-aucun}"
+          if [ -z "$types" ] || echo "$types" | grep -qv -E '^version-update:semver-(minor|patch)$'; then
+            echo "::notice title=Fusion Dependabot::PR #$pr : majeure ou type inconnu, fusion à la main."
+            exit 0
+          fi
+
+          gh pr merge "$pr" --repo "$REPO" --squash --delete-branch --match-head-commit "$HEAD_SHA"
+          echo "::notice title=Fusion Dependabot::PR #$pr fusionnée ($(tr '\n' ' ' <<< "$types"))."
