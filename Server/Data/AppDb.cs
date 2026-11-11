@@ -55,6 +55,46 @@ public class AppDb : IdentityDbContext
         }
     }
 
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        AddDefaultDeviceGroupToNewOrganizations();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        AddDefaultDeviceGroupToNewOrganizations();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>
+    /// Toute organisation créée (inscription, création par l'API, tests) reçoit son groupe
+    /// d'appareils par défaut dans le même enregistrement.
+    /// </summary>
+    private void AddDefaultDeviceGroupToNewOrganizations()
+    {
+        var newOrganizations = ChangeTracker
+            .Entries<Organization>()
+            .Where(x => x.State == EntityState.Added)
+            .Select(x => x.Entity)
+            .ToList();
+
+        foreach (var organization in newOrganizations)
+        {
+            if (organization.DeviceGroups.Any(x => x.IsDefault))
+            {
+                continue;
+            }
+
+            organization.DeviceGroups.Add(new DeviceGroup()
+            {
+                Name = DeviceGroup.DefaultGroupName,
+                IsDefault = true,
+                Organization = organization
+            });
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         var jsonOptions = JsonSerializerOptions.Default;

@@ -477,6 +477,9 @@ namespace Remotely.Server.Migrations.PostgreSql
                         .ValueGeneratedOnAdd()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

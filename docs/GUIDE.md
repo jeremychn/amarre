@@ -32,6 +32,11 @@ Ce guide couvre tout le cycle : installation du serveur, déploiement des agents
 - **Actions groupées** sur l'accueil : cocher des postes (ou **Tout sélectionner**) fait apparaître une barre pour les réveiller (Wake-on-LAN, postes hors ligne), mettre à jour leur agent (postes en ligne), les changer de groupe, désinstaller leur agent ou les supprimer. Les deux dernières demandent confirmation. Chaque action ne touche que les postes auxquels l'utilisateur a droit.
   - **Supprimer** efface la fiche et le jeton du poste. Un agent encore installé **ne peut plus se reconnecter** (il garde un jeton que le serveur n'a plus) : sur le poste, effacer `ServerVerificationToken` dans `ConnectionInfo.json` et redémarrer le service, ou désinstaller puis réinstaller l'agent. À réserver aux postes dont l'agent est déjà retiré.
   - **Désinstaller l'agent** l'enlève du poste, puis supprime la fiche. Un poste hors ligne ne reçoit pas l'ordre : son agent reste installé et ne peut plus se reconnecter (même cas que **Supprimer**).
+- **Groupe d'appareils par défaut « Tous »** dans chaque organisation, créé avec elle (et par la migration pour les organisations existantes). Il est reconnu par un indicateur en base, pas par son nom.
+  - Y entrent : les postes enregistrés sans groupe (installation de l'agent, `POST api/Devices` sans groupe ou avec un groupe inconnu) et les utilisateurs non administrateurs (création, invitation, administrateur rétrogradé). Les non-admins voient donc ces postes et reçoivent leurs alertes.
+  - Depuis **Organisation**, l'admin retire un poste ou un utilisateur de « Tous » comme d'un autre groupe. Un poste qui n'est plus dans aucun groupe n'est visible que des administrateurs, alertes comprises. Une reconnexion de l'agent ne le remet pas dans « Tous ».
+  - « Tous » ne peut pas être supprimé (il est marqué « par défaut » dans la liste des groupes).
+  - À la mise à jour, la migration fait de même pour l'existant : un groupe déjà nommé « Tous » devient le groupe par défaut, sinon il est créé ; les postes sans groupe et les utilisateurs non admins y sont ajoutés.
 - Agents Linux ARM64 (Raspberry Pi…) en plus de Windows, Linux x64 et macOS.
 - **Copier-coller direct** pendant la prise en main :
   - **Ctrl+V** dans le viewer colle le texte copié sur ton PC dans l'application distante ;
@@ -374,6 +379,7 @@ Ordre : serveur d'abord, agents ensuite (le serveur accepte les anciens agents).
 ## 9. Retour arrière
 
 - **Serveur** : rebasculer le conteneur sur l'image précédente (Duplicate/Edit ou tag dans le compose). Données, clés et agents sont sur l'hôte : rien d'autre à faire. Avec la méthode A, toutes les versions restent sur ghcr.io : `docker pull ghcr.io/jeremychn/amarre:<ancienne version>` si elle n'est plus sur le serveur.
+- **Base de données** : les migrations ne sont pas annulées par une image plus ancienne. Après la migration du groupe par défaut, une image précédente ignore la colonne `IsDefault` : « Tous » reste un groupe ordinaire avec ses postes et ses membres (il redevient supprimable).
 - **Agents** : remettre la sauvegarde `content.bak-<date>` créée par `maj-agents.sh` (ou `./Utilities/maj-agents.sh <ancien tag>`) ; les postes se réinstallent avec.
 
 ## 10. Modifier le code

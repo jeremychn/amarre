@@ -293,6 +293,11 @@ public partial class DevicesFrame : AuthComponentBase
             }
             else
             {
+                // Appareil absent de la liste chargée : ne l'ajouter que si l'utilisateur y a accès.
+                if (User is null || !DataService.DoesUserHaveAccessToDevice(device.ID, User))
+                {
+                    return;
+                }
                 _allDevices.Add(device);
             }
 

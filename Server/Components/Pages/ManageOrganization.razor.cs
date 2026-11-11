@@ -142,13 +142,28 @@ public partial class ManageOrganization : AuthComponentBase
             return;
         }
 
+        var selectedGroup = _deviceGroups.Find(x => x.ID == _selectedDeviceGroupId);
+        if (selectedGroup?.IsDefault == true)
+        {
+            ToastService.ShowToast(
+                $"« {selectedGroup.Name} » est le groupe par défaut : il ne peut pas être supprimé.",
+                classString: "bg-warning");
+            return;
+        }
+
         var result = await JsInterop.Confirm("Supprimer ce groupe ?");
         if (!result)
         {
             return;
         }
 
-        await DataService.DeleteDeviceGroup(User.OrganizationID, _selectedDeviceGroupId);
+        var deleteResult = await DataService.DeleteDeviceGroup(User.OrganizationID, _selectedDeviceGroupId);
+        if (!deleteResult.IsSuccess)
+        {
+            ToastService.ShowToast(deleteResult.Reason, classString: "bg-danger");
+            return;
+        }
+
         _deviceGroups.RemoveAll(x => x.ID == _selectedDeviceGroupId);
         _selectedDeviceGroupId = string.Empty;
     }
@@ -425,9 +440,11 @@ public partial class ManageOrganization : AuthComponentBase
         ModalService.ShowModal("Groupes d'appareils", new[]
        {
             "Les groupes servent à restreindre les droits des utilisateurs et à filtrer les appareils " +
-            "sur l'accueil.",
-            "Tout le monde accède aux appareils hors groupe. Seuls les administrateurs " +
-            "et les membres d'un groupe accèdent aux appareils de ce groupe."
+            "sur l'accueil. Seuls les administrateurs et les membres d'un groupe accèdent aux appareils de ce groupe.",
+            "Le groupe par défaut (« Tous » à la création) reçoit les nouveaux appareils enregistrés sans groupe " +
+            "et les nouveaux utilisateurs non administrateurs. Il ne peut pas être supprimé ; retirez-en un appareil " +
+            "ou un utilisateur comme d'un autre groupe.",
+            "Un appareil sans groupe n'est visible que des administrateurs."
         });
     }
 
