@@ -41,6 +41,10 @@ public class SessionRecordingSink : ISessionRecordingSink
         }
     }
 
+    // Plafonds d'un enregistrement : la session de prise de main dure au plus 8 h.
+    public const long MaxRecordingBytes = 4L * 1024 * 1024 * 1024;
+    public static readonly TimeSpan MaxRecordingDuration = TimeSpan.FromHours(8);
+
     public async Task SinkWebmStream(IAsyncEnumerable<byte[]> webmStream, RemoteControlSession session)
     {
         try
@@ -48,22 +52,43 @@ public class SessionRecordingSink : ISessionRecordingSink
             var targetDir = Path.Combine(RecordingsDirectory, $"{DateTime.Now:yyyy-MM-dd}");
             _ = Directory.CreateDirectory(targetDir);
 
-            var viewerName = !string.IsNullOrWhiteSpace(session.RequesterName) ?
-                session.RequesterName :
-                "AnonymousUser";
+            var fileName = $"{GetSafeFileNamePart(session.RequesterName)}_{DateTime.Now:yyyyMMdd_HHmmssfff}_{Guid.NewGuid():N}.webm";
 
-            var fileName = $"{viewerName}_{DateTime.Now:yyyyMMdd_HHmmssfff}.webm";
+            using var fs = new FileStream(Path.Combine(targetDir, fileName), FileMode.CreateNew);
+            using var cts = new CancellationTokenSource(MaxRecordingDuration);
 
-            using var fs = new FileStream(Path.Combine(targetDir, fileName), FileMode.Create);
-
-            await foreach (var chunk in webmStream)
+            await foreach (var chunk in webmStream.WithCancellation(cts.Token))
             {
-                await fs.WriteAsync(chunk);
+                if (fs.Length + chunk.Length > MaxRecordingBytes)
+                {
+                    _logger.LogWarning("Enregistrement de session arrêté : taille maximale atteinte ({fileName}).", fileName);
+                    break;
+                }
+                await fs.WriteAsync(chunk, cts.Token);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Enregistrement de session arrêté : durée maximale atteinte.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while sinking webm stream.");
         }
+    }
+
+    /// <summary>
+    /// Nom du demandeur réduit à des caractères sûrs pour un nom de fichier (le nom vient du client).
+    /// </summary>
+    public static string GetSafeFileNamePart(string? requesterName)
+    {
+        var safe = new string((requesterName ?? string.Empty)
+            .Where(c => char.IsLetterOrDigit(c) || c is '-' or '_' or ' ')
+            .Take(50)
+            .ToArray())
+            .Trim()
+            .Replace(' ', '_');
+
+        return string.IsNullOrEmpty(safe) ? "AnonymousUser" : safe;
     }
 }
