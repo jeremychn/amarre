@@ -552,7 +552,20 @@ public class DataService : IDataService
     {
         using var dbContext = _appDbFactory.GetContext();
 
-        dbContext.Attach(scriptRun);
+        // Rattache les postes par leur ID et laisse les clés étrangères porter le reste :
+        // attacher le graphe reçu (postes avec leur groupe, organisation avec ses groupes)
+        // peut suivre deux fois le même groupe et lever un conflit d'identité.
+        var deviceIds = scriptRun.Devices?.Select(x => x.ID).Distinct().ToList() ?? new List<string>();
+        scriptRun.Devices = await dbContext.Devices
+            .Where(x => deviceIds.Contains(x.ID))
+            .ToListAsync();
+        scriptRun.OrganizationID ??= scriptRun.Organization?.ID!;
+        scriptRun.SavedScriptId ??= scriptRun.SavedScript?.Id;
+        scriptRun.ScheduleId ??= scriptRun.Schedule?.Id;
+        scriptRun.Organization = null;
+        scriptRun.SavedScript = null;
+        scriptRun.Schedule = null;
+
         dbContext.ScriptRuns.Add(scriptRun);
         await dbContext.SaveChangesAsync();
     }
