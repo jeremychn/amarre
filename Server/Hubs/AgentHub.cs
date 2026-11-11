@@ -374,18 +374,30 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public Task DisplayMessage(string consoleMessage, string popupMessage, string className, string requesterId)
     {
+        if (!CanRelayToCircuit(requesterId))
+        {
+            return Task.CompletedTask;
+        }
         var message = new DisplayNotificationMessage(consoleMessage, popupMessage, className);
         return _messenger.Send(message, requesterId);
     }
 
     public Task DownloadFile(string fileID, string requesterId)
     {
+        if (!CanRelayToCircuit(requesterId))
+        {
+            return Task.CompletedTask;
+        }
         var message = new DownloadFileMessage(fileID);
         return _messenger.Send(message, requesterId);
     }
 
     public Task DownloadFileProgress(int progressPercent, string requesterId)
     {
+        if (!CanRelayToCircuit(requesterId))
+        {
+            return Task.CompletedTask;
+        }
         var message = new DownloadFileProgressMessage(progressPercent);
         return _messenger.Send(message, requesterId);
     }
@@ -453,14 +465,25 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public Task ReturnPowerShellCompletions(PwshCommandCompletion completion, CompletionIntent intent, string senderConnectionId)
     {
+        if (!CanRelayToCircuit(senderConnectionId))
+        {
+            return Task.CompletedTask;
+        }
         var message = new PowerShellCompletionsMessage(completion, intent);
         return _messenger.Send(message, senderConnectionId);
     }
 
     public async Task ScriptResult(string scriptResultId)
     {
+        if (Device is null)
+        {
+            return;
+        }
+
         var result = await _dataService.GetScriptResult(scriptResultId);
-        if (!result.IsSuccess)
+        if (!result.IsSuccess ||
+            result.Value.DeviceID != Device.ID ||
+            !CanRelayToCircuit(result.Value.SenderConnectionID))
         {
             return;
         }
@@ -469,18 +492,50 @@ public class AgentHub : Hub<IAgentHubClient>
         await _messenger.Send(message, $"{result.Value.SenderConnectionID}");
     }
 
-    public void ScriptResultViaApi(string commandID, string requestID)
+    public async Task ScriptResultViaApi(string commandID, string requestID)
     {
+        // Seulement un résultat enregistré pour ce poste (ScriptingController vérifie aussi le poste visé).
+        if (Device is null)
+        {
+            return;
+        }
+
+        var result = await _dataService.GetScriptResult(commandID);
+        if (!result.IsSuccess || result.Value.DeviceID != Device.ID)
+        {
+            return;
+        }
+
         ApiScriptResults.Set(requestID, commandID, DateTimeOffset.Now.AddHours(1));
     }
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)
     {
-        return _viewerHubContext.Clients.Clients(viewerIDs).SendAsync("ConnectionFailed");
+        if (Device is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Seulement les lecteurs d'une session de prise de main de ce poste.
+        var deviceViewers = _remoteControlSessions.Sessions
+            .Where(x => x.DeviceId == Device.ID)
+            .SelectMany(x => x.ViewerList)
+            .ToHashSet();
+        var targets = viewerIDs.Where(deviceViewers.Contains).ToList();
+        if (targets.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        return _viewerHubContext.Clients.Clients(targets).SendAsync("ConnectionFailed");
     }
 
     public Task SendLogs(string logChunk, string requesterConnectionId)
     {
+        if (!CanRelayToCircuit(requesterConnectionId))
+        {
+            return Task.CompletedTask;
+        }
         var message = new ReceiveLogsMessage(logChunk);
         return _messenger.Send(message, requesterConnectionId);
     }
@@ -500,8 +555,22 @@ public class AgentHub : Hub<IAgentHubClient>
 
     public Task TransferCompleted(string transferId, string requesterId)
     {
+        if (!CanRelayToCircuit(requesterId))
+        {
+            return Task.CompletedTask;
+        }
         var message = new TransferCompleteMessage(transferId);
         return _messenger.Send(message, requesterId);
+    }
+
+    // Relais vers une page de l'interface : seulement depuis un poste enregistré sur cette connexion,
+    // et vers un utilisateur connecté de la même organisation.
+    private bool CanRelayToCircuit(string? circuitConnectionId)
+    {
+        return Device is not null &&
+            !string.IsNullOrWhiteSpace(circuitConnectionId) &&
+            _circuitManager.TryGetConnection(circuitConnectionId, out var circuit) &&
+            circuit.User.OrganizationID == Device.OrganizationID;
     }
 
     private async Task<bool> CheckForDeviceBan(params string[] deviceIdNameOrIPs)
