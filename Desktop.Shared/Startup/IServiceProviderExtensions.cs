@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Remotely.Shared.Primitives;
 using System.CommandLine;
-using System.CommandLine.NamingConventionBinder;
 using System.Runtime.Versioning;
 using Remotely.Desktop.Native.Windows;
 
@@ -88,39 +87,33 @@ public static class IServiceProviderExtensions
         {
             var rootCommand = CommandProvider.CreateRemoteControlCommand(true, commandLineDescription);
 
-            rootCommand.Handler = CommandHandler.Create(async (
-                string host,
-                AppMode mode,
-                string pipeName,
-                string sessionId,
-                string accessKey,
-                string requesterName,
-                string organizationName,
-                bool relaunch,
-                string viewers,
-                bool elevate) =>
+            rootCommand.SetAction(async (parseResult, _) =>
             {
+                var host = parseResult.GetValue<string>("--host");
                 if (string.IsNullOrWhiteSpace(host) && !string.IsNullOrWhiteSpace(serverUri))
                 {
                     host = serverUri;
                 }
 
-                return await services.UseRemoteControlClient(
-                    host,
-                    mode,
-                    pipeName,
-                    sessionId,
-                    accessKey,
-                    requesterName,
-                    organizationName,
-                    relaunch,
-                    viewers,
-                    elevate);
+                await services.UseRemoteControlClient(
+                    host ?? string.Empty,
+                    parseResult.GetValue<AppMode>("--mode"),
+                    parseResult.GetValue<string>("--pipe-name") ?? string.Empty,
+                    parseResult.GetValue<string>("--session-id") ?? string.Empty,
+                    parseResult.GetValue<string>("--access-key") ?? string.Empty,
+                    parseResult.GetValue<string>("--requester-name") ?? string.Empty,
+                    parseResult.GetValue<string>("--org-name") ?? string.Empty,
+                    parseResult.GetValue<bool>("--relaunch"),
+                    parseResult.GetValue<string>("--viewers") ?? string.Empty,
+                    parseResult.GetValue<bool>("--elevate"));
+
+                // Exit code 0 even on failure, as with the old CommandHandler (which ignored the Result).
+                return 0;
             });
 
             rootCommand.TreatUnmatchedTokensAsErrors = treatUnmatchedArgsAsErrors;
 
-            var result = await rootCommand.InvokeAsync(args);
+            var result = await rootCommand.Parse(args).InvokeAsync();
 
             if (result == 0)
             {
