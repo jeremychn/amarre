@@ -44,7 +44,7 @@
                         reject(ex);
                     }
                 }
-                fr.readAsArrayBuffer(new Blob([buffer], { 'type': 'audio/wav' }));
+                fr.readAsArrayBuffer(new Blob([buffer as BlobPart], { 'type': 'audio/wav' }));
             }
             catch (ex) {
                 reject(ex);

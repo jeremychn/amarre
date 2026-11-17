@@ -69,13 +69,12 @@ export function ApplyInputHandlers() {
         ViewerApp.ViewOnlyMode = ViewOnlyButton.classList.contains("toggled");
     });
     TypeClipboardButton.addEventListener("click", (ev) => {
-        var _a;
         if (!location.protocol.includes("https") &&
             !location.origin.includes("localhost")) {
             alert("Le presse-papiers ne fonctionne qu'en contexte sécurisé (HTTPS ou localhost).");
             return;
         }
-        if (!((_a = navigator.clipboard) === null || _a === void 0 ? void 0 : _a.readText)) {
+        if (!navigator.clipboard?.readText) {
             alert("Ce navigateur ne permet pas l'accès au presse-papiers.");
             return;
         }
@@ -659,12 +658,11 @@ export function ApplyInputHandlers() {
         await ViewerApp.MessageSender.SendKeyUp(key);
     };
     window.addEventListener("paste", async function (e) {
-        var _a;
         if (isEditableFocused() || ViewerApp.ViewOnlyMode || !pasteKey) {
             return;
         }
         e.preventDefault();
-        const text = (_a = e.clipboardData) === null || _a === void 0 ? void 0 : _a.getData("text/plain");
+        const text = e.clipboardData?.getData("text/plain");
         if (!text) {
             await sendPasteKey();
             return;

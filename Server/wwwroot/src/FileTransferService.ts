@@ -46,7 +46,7 @@ export async function ReceiveFile(file: FileDto) {
     }
 
     if (file.EndOfFile) {
-        var blob = new Blob(partial, { type: 'application/octet-stream' });
+        var blob = new Blob(partial as BlobPart[], { type: 'application/octet-stream' });
         var url = window.URL.createObjectURL(blob);
         var link = document.createElement('a');
         link.style.display = 'none';

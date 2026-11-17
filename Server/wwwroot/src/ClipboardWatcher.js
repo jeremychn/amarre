@@ -19,9 +19,8 @@ export class ClipboardWatcher {
     // (Firefox, Safari) exigent une action récente de l'utilisateur : si ça échoue,
     // on réessaie à la prochaine touche, au prochain clic ou au retour du focus.
     async FlushPendingText() {
-        var _a;
         const text = this.NewClipboardText;
-        if (!text || !((_a = navigator.clipboard) === null || _a === void 0 ? void 0 : _a.writeText) || !document.hasFocus()) {
+        if (!text || !navigator.clipboard?.writeText || !document.hasFocus()) {
             return;
         }
         try {
@@ -32,7 +31,7 @@ export class ClipboardWatcher {
             }
             ShowToast("Presse-papier mis à jour.");
         }
-        catch (_b) {
+        catch {
             // On garde le texte en attente.
         }
     }

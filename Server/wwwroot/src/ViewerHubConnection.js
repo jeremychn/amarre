@@ -59,15 +59,13 @@ export class ViewerHubConnection {
         }
     }
     async InvokeCtrlAltDel() {
-        var _a;
-        if (((_a = this.Connection) === null || _a === void 0 ? void 0 : _a.state) != HubConnectionState.Connected) {
+        if (this.Connection?.state != HubConnectionState.Connected) {
             return;
         }
         await this.Connection.invoke("InvokeCtrlAltDel");
     }
     async SendDtoToClient(dto, type) {
-        var _a;
-        if (((_a = this.Connection) === null || _a === void 0 ? void 0 : _a.state) != HubConnectionState.Connected) {
+        if (this.Connection?.state != HubConnectionState.Connected) {
             return;
         }
         let chunks = ChunkDto(dto, type);
