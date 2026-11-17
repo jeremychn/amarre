@@ -24,6 +24,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "System.*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.Win32.*"
+        update-types: ["version-update:semver-major"]
       - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
         update-types: ["version-update:semver-major"]
       # PowerShell suit .NET (7.6 = .NET 10, 7.7 = .NET 11) mais monte en mineure : passe avec .NET
@@ -33,6 +35,12 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "System.Management.Automation"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      # SkiaSharp suit Avalonia (Avalonia 12 = SkiaSharp 3.119) : passe avec Avalonia
+      - dependency-name: "SkiaSharp*"
+        update-types: ["version-update:semver-major"]
+      # MessagePack suit le protocole SignalR (Microsoft.AspNetCore.SignalR.Protocols.MessagePack 10 = MessagePack 2.5)
+      - dependency-name: "MessagePack*"
+        update-types: ["version-update:semver-major"]
     groups:
       nuget-mineures:
         patterns: ["*"]

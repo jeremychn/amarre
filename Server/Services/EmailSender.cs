@@ -1,3 +1,4 @@
+using MailKit;
 using MailKit.Net.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -90,7 +91,7 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
                 await client.AuthenticateAsync(settings.SmtpUserName, settings.SmtpPassword);
             }
 
-            await client.SendAsync(message);
+            await client.SendAsync(new SendRequest(message));
             await client.DisconnectAsync(true);
 
             // Pas d'adresse du destinataire dans les journaux (donnée personnelle)
