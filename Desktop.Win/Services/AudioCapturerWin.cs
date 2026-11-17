@@ -1,4 +1,5 @@
 ﻿using Remotely.Desktop.Shared.Abstractions;
+using NAudio.CoreAudioApi;
 using NAudio.Wave;
 using System.IO;
 
@@ -8,8 +9,8 @@ public class AudioCapturerWin : IAudioCapturer
 {
     private readonly ILogger<AudioCapturerWin> _logger;
     private readonly SemaphoreSlim _sendLock = new(1, 1);
-    private WasapiLoopbackCapture? _capturer;
-    private WaveFormat? _targetFormat;
+    private WasapiRecorder? _capturer;
+    private readonly WaveFormat _targetFormat = new(16000, 8, 1);
     public AudioCapturerWin(ILogger<AudioCapturerWin> logger)
     {
         _logger = logger;
@@ -29,21 +30,29 @@ public class AudioCapturerWin : IAudioCapturer
         }
     }
 
-    private async void Capturer_DataAvailable(object? sender, WaveInEventArgs args)
+    // The span is only valid during the callback: copy it, then send it outside the WASAPI thread.
+    private void Capturer_DataAvailable(
+        ReadOnlySpan<byte> buffer,
+        AudioClientBufferFlags flags,
+        long devicePosition,
+        long qpcPosition)
     {
-        if (args.Buffer.All(x => x == 0))
+        if (buffer.IsEmpty ||
+            flags.HasFlag(AudioClientBufferFlags.Silent) ||
+            !buffer.ContainsAnyExcept((byte)0))
         {
             return;
         }
 
+        _ = SendSample(buffer.ToArray());
+    }
+
+    private async Task SendSample(byte[] sample)
+    {
         try
         {
             await _sendLock.WaitAsync();
-
-            if (args.BytesRecorded > 0)
-            {
-                await SendTempBuffer(args.Buffer);
-            }
+            await SendTempBuffer(sample);
         }
         catch { }
         finally
@@ -82,8 +91,8 @@ public class AudioCapturerWin : IAudioCapturer
         try
         {
             _capturer?.Dispose();
-            _capturer = new WasapiLoopbackCapture();
-            _targetFormat ??= new WaveFormat(16000, 8, 1);
+            // Loopback of the default render device (what the PC is playing)
+            _capturer = new WasapiRecorderBuilder().WithLoopbackCapture().Build();
             _capturer.DataAvailable += Capturer_DataAvailable;
 
             _capturer.StartRecording();
