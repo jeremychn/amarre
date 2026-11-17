@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
     "noImplicitAny": false,
+    "strict": false,
     "noEmitOnError": true,
     "removeComments": false,
     "sourceMap": true,
-    "target": "es2017",
+    "target": "es2020",
     "module": "ESNext",
     "allowJs": false,
-    "moduleResolution": "Node"
+    "moduleResolution": "Bundler"
   },
   "exclude": [
     "node_modules",

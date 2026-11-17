@@ -1,7 +1,7 @@
 # Vérifie que tout compile sans warning ni paquet vulnérable à chaque pull request (rien n'est publié).
 # Appelé aussi par release.yml à chaque push sur main et avant toute publication.
 #   - serveur + tests : Linux
-#   - viewer : les .js commités doivent correspondre aux .ts (tsc 5.6.2)
+#   - viewer : les .js commités doivent correspondre aux .ts (tsc 7, comme Microsoft.TypeScript.MSBuild)
 #   - agents et applis de prise de main : Windows (Desktop.Win ne compile que sous Windows)
 #   - image serveur : Dockerfile sans avertissement, image construite, aucune faille connue
 #     corrigeable (Grype, sévérité >= medium)
@@ -50,8 +50,8 @@ jobs:
 
       - name: Viewer TypeScript à jour
         run: |
-          npx -y -p typescript@5.6.2 tsc -p Server/wwwroot/src/tsconfig.json
-          git diff --exit-code -- Server/wwwroot/src || { echo "::error::Les .js du viewer ne correspondent pas aux .ts : recompiler avec tsc 5.6.2 et commiter."; exit 1; }
+          npx -y -p typescript@7.0.2 tsc -p Server/wwwroot/src/tsconfig.json
+          git diff --exit-code -- Server/wwwroot/src || { echo "::error::Les .js du viewer ne correspondent pas aux .ts : recompiler avec tsc 7 (build du serveur) et commiter."; exit 1; }
 
   agents:
     runs-on: windows-2025

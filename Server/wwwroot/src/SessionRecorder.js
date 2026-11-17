@@ -28,9 +28,8 @@ export class SessionRecorder {
         this.recorder.start(100);
     }
     Stop() {
-        var _a, _b;
-        (_a = this.recorder) === null || _a === void 0 ? void 0 : _a.stop();
-        (_b = this.subject) === null || _b === void 0 ? void 0 : _b.complete();
+        this.recorder?.stop();
+        this.subject?.complete();
     }
 }
 //# sourceMappingURL=SessionRecorder.js.map

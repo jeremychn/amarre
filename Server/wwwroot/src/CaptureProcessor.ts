@@ -13,7 +13,7 @@ export async function ProcessStream(streamingState: StreamingState): Promise<voi
 
     try {
         const chunks = streamingState.ReceivedChunks.splice(0);
-        streamingState.Buffer = new Blob([streamingState.Buffer, ...chunks]);
+        streamingState.Buffer = new Blob([streamingState.Buffer, ...chunks] as BlobPart[]);
 
         const bufferSize = streamingState.Buffer.size;
 

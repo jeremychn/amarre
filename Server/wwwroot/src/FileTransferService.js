@@ -19,7 +19,7 @@ export async function UploadFiles(fileList) {
         }
         ShowToast("Envoi du fichier terminé.");
     }
-    catch (_a) {
+    catch {
         ShowToast("Échec de l'envoi du fichier.");
     }
     FileTransferInput.value = null;
