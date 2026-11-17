@@ -297,7 +297,7 @@ public class Viewer : IViewer
                 int thumbWidth = Math.Min(maxWidth, bitmap.Width);
                 int thumbHeight = (int)Math.Round((double)bitmap.Height / bitmap.Width * thumbWidth);
 
-                using var scaledBitmap = bitmap.Resize(new SkiaSharp.SKImageInfo(thumbWidth, thumbHeight), SkiaSharp.SKFilterQuality.Low);
+                using var scaledBitmap = bitmap.Resize(new SkiaSharp.SKImageInfo(thumbWidth, thumbHeight), new SkiaSharp.SKSamplingOptions(SkiaSharp.SKFilterMode.Linear, SkiaSharp.SKMipmapMode.None));
                 using var image = SkiaSharp.SKImage.FromBitmap(scaledBitmap);
                 using var data = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 50);
                 var jpegBytes = data.ToArray();
