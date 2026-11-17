@@ -3,7 +3,8 @@
 # Build est vert (dependabot-fusion.yml) ; les majeures attendent une fusion à la main.
 # Les failles NuGet et de l'image restent bloquées par build.yml (chaque lundi et avant chaque release).
 #
-# Paquets et image liés à la version de .NET (net10.0, SDK 10.0.x de la CI) : pas de majeure proposée,
+# Paquets et image liés à la version de .NET (net10.0, SDK 10.0.x de la CI) : pas de majeure proposée
+# (ni de mineure pour PowerShell),
 # le passage à une nouvelle version de .NET se fait d'un bloc, à la main.
 version: 2
 updates:
@@ -25,6 +26,13 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "Npgsql.EntityFrameworkCore.PostgreSQL"
         update-types: ["version-update:semver-major"]
+      # PowerShell suit .NET (7.6 = .NET 10, 7.7 = .NET 11) mais monte en mineure : passe avec .NET
+      - dependency-name: "Microsoft.PowerShell.SDK"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "Microsoft.WSMan.*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "System.Management.Automation"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       nuget-mineures:
         patterns: ["*"]
