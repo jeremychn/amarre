@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Remotely.Server.Services;
 using Remotely.Shared.Dtos;
@@ -19,6 +20,27 @@ public class DataServiceTests
     private readonly string _newDeviceID = "NewDeviceName";
     private IDataService _dataService = null!;
     private TestData _testData = null!;
+
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task ValidateApiKey_AncienHachage_AccepteEtRehache()
+    {
+        const string secret = "secret-de-test";
+        var oldHasher = new PasswordHasher<string>(Microsoft.Extensions.Options.Options.Create(new PasswordHasherOptions
+        {
+            CompatibilityMode = PasswordHasherCompatibilityMode.IdentityV2
+        }));
+        var token = (await _dataService.CreateApiToken(
+            _testData.Org1Admin1.UserName!, "ancien", oldHasher.HashPassword(string.Empty, secret))).Value!;
+
+        Assert.IsTrue(await _dataService.ValidateApiKey(token.ID, secret, "/test", "127.0.0.1"));
+
+        var rehashed = (await _dataService.GetApiKey(token.ID)).Value!.Secret!;
+        Assert.AreEqual(
+            PasswordVerificationResult.Success,
+            new PasswordHasher<string>().VerifyHashedPassword(string.Empty, rehashed, secret));
+        Assert.IsFalse(await _dataService.ValidateApiKey(token.ID, "mauvais", "/test", "127.0.0.1"));
+    }
 
     [TestMethod]
     public async Task AddAlert()

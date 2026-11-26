@@ -2296,12 +2296,20 @@ public class DataService : IDataService
         var hasher = new PasswordHasher<string>();
         var token = await dbContext.ApiTokens.FirstOrDefaultAsync(x => x.ID == keyId);
 
-        var isValid = 
-            !string.IsNullOrWhiteSpace(token?.Secret) &&
-            hasher.VerifyHashedPassword(string.Empty, token.Secret, apiSecret) == PasswordVerificationResult.Success;
+        var verification = string.IsNullOrWhiteSpace(token?.Secret)
+            ? PasswordVerificationResult.Failed
+            : hasher.VerifyHashedPassword(string.Empty, token.Secret, apiSecret);
+
+        // Secret juste mais haché par une version plus ancienne (format ou nombre d'itérations) :
+        // accepté, puis haché de nouveau avec les paramètres actuels.
+        var isValid = verification is PasswordVerificationResult.Success or PasswordVerificationResult.SuccessRehashNeeded;
 
         if (token is not null)
         {
+            if (verification == PasswordVerificationResult.SuccessRehashNeeded)
+            {
+                token.Secret = hasher.HashPassword(string.Empty, apiSecret);
+            }
             token.LastUsed = DateTimeOffset.Now;
             await dbContext.SaveChangesAsync();
         }
