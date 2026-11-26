@@ -2,6 +2,9 @@
 # une pour les majeures. Les mineures et correctifs se fusionnent d'eux-mêmes quand le contrôle
 # Build est vert (dependabot-fusion.yml) ; les majeures attendent une fusion à la main.
 # Les failles NuGet et de l'image restent bloquées par build.yml (chaque lundi et avant chaque release).
+# Délai (cooldown) : une version n'est proposée que 7 jours après sa publication, le temps qu'une version
+# compromise à la source soit repérée et retirée avant la fusion automatique. Ne joue pas sur les mises à
+# jour de sécurité.
 #
 # Paquets et image liés à la version de .NET (net10.0, SDK 10.0.x de la CI) : pas de majeure proposée
 # (ni de mineure pour PowerShell),
@@ -15,6 +18,8 @@ updates:
       day: monday
       time: "04:00"
       timezone: Europe/Paris
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "Microsoft.AspNetCore.*"
         update-types: ["version-update:semver-major"]
@@ -56,6 +61,8 @@ updates:
       day: monday
       time: "04:00"
       timezone: Europe/Paris
+    cooldown:
+      default-days: 7
     ignore:
       - dependency-name: "dotnet/aspnet"
         update-types: ["version-update:semver-major"]
@@ -74,6 +81,8 @@ updates:
       day: monday
       time: "04:00"
       timezone: Europe/Paris
+    cooldown:
+      default-days: 7
     groups:
       actions-mineures:
         patterns: ["*"]
