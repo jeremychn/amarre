@@ -298,6 +298,7 @@ Retour arrière : remettre `content.bak-<date>`.
 
 - **Installation permanente** : sur le site, page **/deploy**, télécharger l'installeur de la plateforme (Windows x64/x86, Linux, macOS) et le lancer en administrateur (ou `sudo` pour les `.sh`). L'appareil apparaît dans la liste.
 - **Assistance ponctuelle** : envoyer le client portable (`Remotely_Desktop.exe` sous Windows, `Remotely_Desktop` sous Linux) ; l'utilisateur le lance et communique le code de session.
+- **Fichiers envoyés au poste** (bouton « Envoyer un fichier » de la carte) : rangés dans le dossier `SharedFiles` de l'agent (`C:\Program Files\Remotely\SharedFiles` sous Windows, `/usr/local/bin/Remotely/SharedFiles` sous Linux et macOS), réservé à SYSTEM et aux administrateurs (root sous Linux et macOS) : l'utilisateur du poste n'y a pas accès, un script lancé depuis la console peut les déplacer. Les installeurs vident ce dossier à chaque réinstallation ou mise à jour de l'agent. Les agents antérieurs écrivaient dans le dossier temporaire du système (`RemotelySharedFiles`).
 
 ## 7. Mettre à jour le serveur
 
