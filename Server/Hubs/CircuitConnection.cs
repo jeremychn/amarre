@@ -132,7 +132,6 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     public async Task ExecuteCommandOnAgent(ScriptingShell shell, string command, string[] deviceIDs)
     {
         deviceIDs = _dataService.FilterDeviceIdsByUserPermission(deviceIDs, User);
-        var connections = GetActiveConnectionsForUserOrg(deviceIDs);
 
         _logger.LogInformation("Command executed by {username}.  Shell: {shell}.  Command: {command}.  Devices: {deviceIds}",
               User.UserName,
@@ -140,14 +139,19 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
               command,
               string.Join(", ", deviceIDs));
 
-        var authTokenForUploadingResults = _expiringTokenService.GetToken(Time.Now.AddMinutes(5), User.OrganizationID);
+        // Un jeton par poste : il ne sert qu'à envoyer le résultat de cette commande.
+        foreach (var (deviceId, connectionId) in GetActiveDevicesForUserOrg(deviceIDs))
+        {
+            var authTokenForUploadingResults = _expiringTokenService.GetToken(
+                ExpiringTokenScope.ForCommand(User.OrganizationID, deviceId, ExpiringTokenScope.TerminalResultWindow, Time.Now));
 
-        await _agentHubContext.Clients.Clients(connections).ExecuteCommand(
-            shell,
-            command,
-            authTokenForUploadingResults,
-            $"{User.UserName}",
-            ConnectionId);
+            await _agentHubContext.Clients.Client(connectionId).ExecuteCommand(
+                shell,
+                command,
+                authTokenForUploadingResults,
+                $"{User.UserName}",
+                ConnectionId);
+        }
     }
 
     public Task GetPowerShellCompletions(string inputText, int currentIndex, CompletionIntent intent, bool? forward)
@@ -343,13 +347,18 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             _agentSessionCache.TryGetByDeviceId(id, out var device) &&
             device.OrganizationID == orgId);
 
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes), orgId);
-
-        var connectionIds = _agentSessionCache.GetConnectionIdsByDeviceIds(orgDeviceIds).ToArray();
-
-        if (connectionIds.Any())
+        // Un jeton par poste : ce script, cette exécution, un résultat.
+        foreach (var deviceId in orgDeviceIds)
         {
-            await _agentHubContext.Clients.Clients(connectionIds).RunScript(
+            if (!_agentSessionCache.TryGetConnectionId(deviceId, out var connectionId))
+            {
+                continue;
+            }
+
+            var authToken = _expiringTokenService.GetToken(
+                ExpiringTokenScope.ForScriptRun(orgId, deviceId, savedScriptId, scriptRunId, Time.Now));
+
+            await _agentHubContext.Clients.Client(connectionId).RunScript(
                 savedScriptId,
                 scriptRunId,
                 $"{username}",
@@ -411,7 +420,9 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             return false;
         }
 
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(5), User.OrganizationID);
+        // Jeton limité à ces fichiers.
+        var authToken = _expiringTokenService.GetToken(
+            ExpiringTokenScope.ForFiles(User.OrganizationID, deviceId, fileIds, Time.Now));
 
         await _agentHubContext.Clients
             .Client(connectionId)
@@ -575,7 +586,10 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         return (true, connectionId);
     }
 
-    private IEnumerable<string> GetActiveConnectionsForUserOrg(IEnumerable<string> deviceIds)
+    private IEnumerable<string> GetActiveConnectionsForUserOrg(IEnumerable<string> deviceIds) =>
+        GetActiveDevicesForUserOrg(deviceIds).Select(x => x.ConnectionId);
+
+    private IEnumerable<(string DeviceId, string ConnectionId)> GetActiveDevicesForUserOrg(IEnumerable<string> deviceIds)
     {
 
         foreach (var deviceId in deviceIds)
@@ -592,7 +606,7 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
 
             if (_agentSessionCache.TryGetConnectionId(device.ID, out var connectionId))
             {
-                yield return connectionId;
+                yield return (device.ID, connectionId);
             }
         }
     }

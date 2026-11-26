@@ -3,12 +3,24 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Remotely.Server.Services;
 using Remotely.Shared;
 using Remotely.Shared.Utilities;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 
 namespace Remotely.Server.Auth;
 
 public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFilter
 {
+    private const string ScopeKey = nameof(ExpiringTokenScope);
+
+    /// <summary>
+    /// Portée du jeton d'agent de la requête ; faux pour un utilisateur connecté ou une clé d'API.
+    /// </summary>
+    public static bool TryGetScope(HttpContext httpContext, [NotNullWhen(true)] out ExpiringTokenScope? scope)
+    {
+        scope = httpContext.Items.TryGetValue(ScopeKey, out var value) ? value as ExpiringTokenScope : null;
+        return scope is not null;
+    }
+
     private readonly IDataService _dataService;
     private readonly IExpiringTokenService _expiringTokenService;
     private readonly ILogger<ExpiringTokenFilter> _logger;
@@ -89,12 +101,14 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
 
         if (http.Request.Headers.TryGetValue(AppConstants.ExpiringTokenHeaderName, out var expiringToken))
         {
-            if (_expiringTokenService.TryGetToken(expiringToken.ToString(), out var expiration, out var tokenOrgId) &&
-                expiration > Time.Now &&
-                !string.IsNullOrWhiteSpace(tokenOrgId))
+            if (_expiringTokenService.TryGetToken(expiringToken.ToString(), out var scope) &&
+                scope.Expiration > Time.Now &&
+                !string.IsNullOrWhiteSpace(scope.OrganizationId))
             {
-                _logger.LogDebug("Expiring token authorized.  Expiration: {expiration}", expiration);
-                http.Request.Headers["OrganizationID"] = tokenOrgId;
+                _logger.LogDebug("Expiring token authorized.  Expiration: {expiration}", scope.Expiration);
+                http.Request.Headers["OrganizationID"] = scope.OrganizationId;
+                // Chaque action vérifie que le jeton vaut pour ce qu'elle sert (script, fichier, résultat).
+                http.Items[ScopeKey] = scope;
                 return;
             }
         }

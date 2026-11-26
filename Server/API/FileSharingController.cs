@@ -2,6 +2,7 @@
 using Remotely.Server.Auth;
 using Remotely.Server.Extensions;
 using Remotely.Server.Services;
+using Remotely.Shared.Utilities;
 
 namespace Remotely.Server.API;
 
@@ -20,6 +21,13 @@ public class FileSharingController : ControllerBase
     [ServiceFilter(typeof(ExpiringTokenFilter))]
     public async Task<IActionResult> Get(string id)
     {
+        // Jeton d'agent : seulement les fichiers de l'envoi pour lequel il a été remis.
+        if (ExpiringTokenFilter.TryGetScope(HttpContext, out var scope) &&
+            !scope.CanReadFile(id, Time.Now))
+        {
+            return NotFound();
+        }
+
         var sharedFileResult = await _dataService.GetSharedFiled(id);
 
         if (!sharedFileResult.IsSuccess ||

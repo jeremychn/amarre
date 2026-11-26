@@ -91,7 +91,9 @@ public class ScriptingController : ControllerBase
         }
 
         var requestID = Guid.NewGuid().ToString();
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes), orgId);
+        // Jeton limité à l'envoi du résultat de cette commande, pour ce poste.
+        var authToken = _expiringTokenService.GetToken(
+            ExpiringTokenScope.ForCommand(orgId, device.ID, ExpiringTokenScope.ScriptResultWindow, Time.Now));
 
         // TODO: Replace with new invoke capability in .NET 7.
         await _agentHubContext.Clients.Client(connectionId).ExecuteCommandFromApi(

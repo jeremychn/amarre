@@ -3,6 +3,7 @@ using Remotely.Server.Auth;
 using Remotely.Server.Extensions;
 using Remotely.Server.Services;
 using Remotely.Shared.Entities;
+using Remotely.Shared.Utilities;
 
 namespace Remotely.Server.API;
 
@@ -21,6 +22,13 @@ public class SavedScriptsController : ControllerBase
     [HttpGet("{scriptId}")]
     public async Task<ActionResult<SavedScript>> GetScript(Guid scriptId)
     {
+        // Jeton d'agent : seulement le script de l'exécution pour laquelle il a été remis.
+        if (ExpiringTokenFilter.TryGetScope(HttpContext, out var scope) &&
+            !scope.CanReadScript(scriptId, Time.Now))
+        {
+            return NotFound();
+        }
+
         var result =  await _dataService.GetSavedScript(scriptId);
         if (!result.IsSuccess ||
             !Request.Headers.TryGetOrganizationId(out var orgId) ||

@@ -5,6 +5,7 @@ using Remotely.Server.Auth;
 using Remotely.Server.Extensions;
 using Remotely.Server.Services;
 using Remotely.Shared.Dtos;
+using Remotely.Shared.Utilities;
 using System.Text;
 
 namespace Remotely.Server.API;
@@ -63,6 +64,13 @@ public class ScriptResultsController : ControllerBase
         // Le jeton ne vaut que pour son organisation : pas de résultat pour un poste d'une autre.
         if (!Request.Headers.TryGetOrganizationId(out var orgId) ||
             !(await _dataService.GetDevice(orgId, result.DeviceID)).IsSuccess)
+        {
+            return NotFound();
+        }
+
+        // Jeton d'agent : un seul résultat, pour le poste, le script et l'exécution du jeton.
+        if (ExpiringTokenFilter.TryGetScope(HttpContext, out var scope) &&
+            !scope.TryUseForResult(result, Time.Now))
         {
             return NotFound();
         }

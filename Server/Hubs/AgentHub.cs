@@ -135,7 +135,6 @@ public class AgentHub : Hub<IAgentHubClient>
             return;
         }
 
-        var authToken = _expiringTokenService.GetToken(Time.Now.AddMinutes(AppConstants.ScriptRunExpirationMinutes), Device.OrganizationID);
         var scriptRuns = await _dataService.GetPendingScriptRuns(Device.ID);
 
         foreach (var run in scriptRuns)
@@ -144,6 +143,9 @@ public class AgentHub : Hub<IAgentHubClient>
             {
                 continue;
             }
+            // Un jeton par exécution : ce script, ce poste, un résultat.
+            var authToken = _expiringTokenService.GetToken(
+                ExpiringTokenScope.ForScriptRun(Device.OrganizationID, Device.ID, run.SavedScriptId.Value, run.Id, Time.Now));
             await Clients.Caller.RunScript(
                 run.SavedScriptId.Value,
                 run.Id,
