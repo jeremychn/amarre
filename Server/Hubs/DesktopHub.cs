@@ -211,9 +211,10 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public Task<Result> ReceiveUnattendedSessionInfo(Guid unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
+        // Session créée par le serveur (prise en main, relancement) : sa clé est connue dès la
+        // création, seul le client de bureau lancé par l'agent la reçoit. Une clé vide ne passe pas.
         if (_sessionCache.TryGetValue($"{unattendedSessionId}", out var existingSession) &&
-            !string.IsNullOrWhiteSpace(existingSession.AccessKey) &&
-            accessKey != existingSession.AccessKey)
+            !AccessKeyMatches(existingSession.AccessKey, accessKey))
         {
             _logger.LogWarning(
                 "A desktop session tried to take over an existing session, " +
@@ -235,6 +236,13 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
         return Task.FromResult(Result.Ok());
     }
+
+    internal static bool AccessKeyMatches(string expected, string? actual) =>
+        !string.IsNullOrEmpty(expected) &&
+        actual is not null &&
+        CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(expected),
+            System.Text.Encoding.UTF8.GetBytes(actual));
 
     public Task SendConnectionFailedToViewers(List<string> viewerIDs)
     {

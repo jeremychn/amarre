@@ -266,9 +266,12 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         var sessionId = Guid.NewGuid();
         var accessKey = RandomGenerator.GenerateAccessKey();
 
+        // La clé est rangée dans la session : seul le client de bureau lancé par l'agent la connaît
+        // et peut s'enregistrer sous cet ID (DesktopHub.ReceiveUnattendedSessionInfo).
         var session = new RemoteControlSession()
         {
             UnattendedSessionId = sessionId,
+            AccessKey = accessKey,
             UserConnectionId = ConnectionId,
             AgentConnectionId = serviceConnectionId,
             DeviceId = deviceId,

@@ -82,9 +82,11 @@ public class RemoteControlController : ControllerBase
         var sessionId = Guid.NewGuid();
         var accessKey = RandomGenerator.GenerateAccessKey();
 
+        // Clé rangée dans la session (voir DesktopHub.ReceiveUnattendedSessionInfo).
         var session = new RemoteControlSession()
         {
             UnattendedSessionId = sessionId,
+            AccessKey = accessKey,
             UserConnectionId = HttpContext.Connection.Id,
             AgentConnectionId = serviceConnectionId,
             DeviceId = deviceID,
