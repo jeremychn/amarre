@@ -4,6 +4,7 @@ using Remotely.Server.Services;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Interfaces;
 using Microsoft.AspNetCore.SignalR;
+using System.Security.Cryptography;
 
 namespace Remotely.Server.Hubs;
 
@@ -74,16 +75,12 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
         SessionInfo.Mode = RemoteControlMode.Attended;
 
-        var random = new Random();
         var sessionId = string.Empty;
 
         while (true)
         {
-            sessionId = "";
-            for (var i = 0; i < 3; i++)
-            {
-                sessionId += random.Next(0, 999).ToString().PadLeft(3, '0');
-            }
+            // 9 chiffres tirés par un générateur cryptographique : c'est cet ID qui permet de rejoindre la session.
+            sessionId = RandomNumberGenerator.GetInt32(1_000_000_000).ToString("D9");
 
             SessionInfo.AttendedSessionId = sessionId;
             if (_sessionCache.TryAdd(sessionId, SessionInfo))

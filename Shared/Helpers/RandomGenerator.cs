@@ -4,13 +4,11 @@ namespace Remotely.Shared.Helpers;
 
 public class RandomGenerator
 {
-    private const string AllowableCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789";
+    private const string AllowableCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-    public static string GenerateString(int length)
-    {
-        var bytes = RandomNumberGenerator.GetBytes(length);
-        return new string(bytes.Select(x => AllowableCharacters[x % AllowableCharacters.Length]).ToArray());
-    }
+    // Tirage uniforme sur les 62 caractères (pas de modulo sur un octet, qui favorisait les premiers).
+    public static string GenerateString(int length) =>
+        RandomNumberGenerator.GetString(AllowableCharacters, length);
 
     public static string GenerateAccessKey()
     {
