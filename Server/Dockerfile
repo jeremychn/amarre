@@ -1,4 +1,5 @@
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
+# Image de base épinglée (version et digest) : Dependabot (docker) monte les deux ensemble
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.15@sha256:aac50ceef10391e78a899e3d2ccd00bbafa2dcb56ccf4586cbccf00edb84fc21
 
 # Rattache l'image ghcr au dépôt (page du paquet, visibilité)
 LABEL org.opencontainers.image.source=https://github.com/jeremychn/amarre \

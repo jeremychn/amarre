@@ -7,6 +7,8 @@
 # jour de sécurité.
 # Actions GitHub épinglées par SHA de commit, tag en commentaire (« @<sha> # vX.Y.Z ») : Dependabot
 # monte le SHA et le commentaire ensemble.
+# Versions NuGet fixes (pas de 10.0.*) et image de base épinglée par digest : rien ne monte sans
+# passer par une PR, donc par le délai.
 #
 # Paquets et image liés à la version de .NET (net10.0, SDK 10.0.x de la CI) : pas de majeure proposée
 # (ni de mineure pour PowerShell),
