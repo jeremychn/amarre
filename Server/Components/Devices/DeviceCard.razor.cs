@@ -79,6 +79,9 @@ public partial class DeviceCard : AuthComponentBase
 
     private TimeSpan? Uptime => DeviceUptime.Get(Device, Time.Now);
 
+    // Explorateur de fichiers : onglet « Fichiers » de la page du poste.
+    private void OpenFileExplorer() => JsInterop.OpenWindow($"/device-details/{Device.ID}/files", "_blank");
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();

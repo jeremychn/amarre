@@ -40,8 +40,12 @@ public sealed class ExpiringTokenScope
     public IReadOnlyCollection<string> SharedFileIds { get; private init; } = [];
     public DateTimeOffset ReadUntil { get; private init; }
     public DateTimeOffset ResultUntil { get; private init; }
+    public DateTimeOffset UploadUntil { get; private init; }
 
-    public DateTimeOffset Expiration => ReadUntil > ResultUntil ? ReadUntil : ResultUntil;
+    /// <summary>Fichier rangé par l'envoi du poste, lu par la console qui l'a demandé.</summary>
+    public string? UploadedFileId { get; set; }
+
+    public DateTimeOffset Expiration => new[] { ReadUntil, ResultUntil, UploadUntil }.Max();
 
     public static ExpiringTokenScope ForScriptRun(string organizationId, string deviceId, Guid savedScriptId, int scriptRunId, DateTimeOffset now) =>
         new(organizationId, deviceId)
@@ -58,6 +62,13 @@ public sealed class ExpiringTokenScope
             ResultUntil = now + resultWindow,
         };
 
+    /// <summary>Envoi d'un fichier du poste au serveur (explorateur de fichiers) : une fois, 5 minutes.</summary>
+    public static ExpiringTokenScope ForDeviceUpload(string organizationId, string deviceId, DateTimeOffset now) =>
+        new(organizationId, deviceId)
+        {
+            UploadUntil = now + FileReadWindow,
+        };
+
     public static ExpiringTokenScope ForFiles(string organizationId, string deviceId, IEnumerable<string> sharedFileIds, DateTimeOffset now) =>
         new(organizationId, deviceId)
         {
@@ -70,6 +81,12 @@ public sealed class ExpiringTokenScope
 
     public bool CanReadFile(string sharedFileId, DateTimeOffset now) =>
         now < ReadUntil && SharedFileIds.Contains(sharedFileId);
+
+    private int _uploadUsed;
+
+    /// <summary>Vrai une seule fois, dans le délai d'envoi d'un fichier du poste.</summary>
+    public bool TryUseForUpload(DateTimeOffset now) =>
+        now < UploadUntil && Interlocked.Exchange(ref _uploadUsed, 1) == 0;
 
     /// <summary>
     /// Vrai une seule fois, pour un résultat de ce poste, de ce script et de cette exécution.

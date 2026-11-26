@@ -7,6 +7,7 @@ using Remotely.Server.Models;
 using Remotely.Server.Models.Messages;
 using Remotely.Server.Services.Stores;
 using Remotely.Shared;
+using Remotely.Shared.Dtos;
 using Remotely.Shared.Entities;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Interfaces;
@@ -41,6 +42,11 @@ public interface ICircuitConnection
 
     Task SendChat(string message, string deviceId, bool isDisconnecting = false);
     Task<bool> TransferFileFromBrowserToAgent(string deviceId, string transferId, string[] fileIds);
+
+    // Explorateur de fichiers (agents 1.27+).
+    Task<Result<DeviceFileListDto>> ListDeviceDirectory(string deviceId, string path);
+    Task<Result<string>> DownloadDeviceFile(string deviceId, string path);
+    Task<Result> UploadFilesToDeviceFolder(string deviceId, string folder, string[] fileIds);
 
     Task TriggerHeartbeat(string deviceId);
 
@@ -433,6 +439,93 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
                 authToken);
 
         return true;
+    }
+
+    // Délai des appels de l'explorateur de fichiers ; un agent antérieur à la 1.27 ne répond pas.
+    private static readonly TimeSpan DeviceFileTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan DeviceFileTransferTimeout = TimeSpan.FromMinutes(10);
+    private const string AgentTooOld = "Le poste ne répond pas : agent injoignable ou antérieur à la 1.27.";
+
+    public async Task<Result<DeviceFileListDto>> ListDeviceDirectory(string deviceId, string path)
+    {
+        var (canAccess, connectionId) = CanAccessDevice(deviceId);
+        if (!canAccess)
+        {
+            return Result.Fail<DeviceFileListDto>("Appareil introuvable ou accès refusé.");
+        }
+
+        try
+        {
+            var listing = await _agentHubContext.Clients.Client(connectionId)
+                .ListDeviceDirectory(path)
+                .WaitAsync(DeviceFileTimeout);
+            return Result.Ok(listing);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "File explorer listing failed on device {deviceId}.", deviceId);
+            return Result.Fail<DeviceFileListDto>(AgentTooOld);
+        }
+    }
+
+    public async Task<Result<string>> DownloadDeviceFile(string deviceId, string path)
+    {
+        var (canAccess, connectionId) = CanAccessDevice(deviceId);
+        if (!canAccess)
+        {
+            return Result.Fail<string>("Appareil introuvable ou accès refusé.");
+        }
+
+        _logger.LogInformation("File explorer: {username} downloads {path} from device {deviceId}.", User.UserName, path, deviceId);
+
+        var scope = ExpiringTokenScope.ForDeviceUpload(User.OrganizationID, deviceId, Time.Now);
+        var authToken = _expiringTokenService.GetToken(scope);
+        try
+        {
+            var error = await _agentHubContext.Clients.Client(connectionId)
+                .SendDeviceFile(path, authToken)
+                .WaitAsync(DeviceFileTransferTimeout);
+
+            if (!string.IsNullOrEmpty(error))
+            {
+                return Result.Fail<string>(error);
+            }
+            return scope.UploadedFileId is { } fileId
+                ? Result.Ok(fileId)
+                : Result.Fail<string>("Fichier non reçu par le serveur.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "File explorer download failed on device {deviceId}.", deviceId);
+            return Result.Fail<string>(AgentTooOld);
+        }
+    }
+
+    public async Task<Result> UploadFilesToDeviceFolder(string deviceId, string folder, string[] fileIds)
+    {
+        var (canAccess, connectionId) = CanAccessDevice(deviceId);
+        if (!canAccess)
+        {
+            return Result.Fail("Appareil introuvable ou accès refusé.");
+        }
+
+        _logger.LogInformation("File explorer: {username} sends {count} file(s) to {folder} on device {deviceId}.",
+            User.UserName, fileIds.Length, folder, deviceId);
+
+        var authToken = _expiringTokenService.GetToken(
+            ExpiringTokenScope.ForFiles(User.OrganizationID, deviceId, fileIds, Time.Now));
+        try
+        {
+            var error = await _agentHubContext.Clients.Client(connectionId)
+                .ReceiveFilesToFolder(fileIds, folder, authToken)
+                .WaitAsync(DeviceFileTransferTimeout);
+            return string.IsNullOrEmpty(error) ? Result.Ok() : Result.Fail(error);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "File explorer upload failed on device {deviceId}.", deviceId);
+            return Result.Fail(AgentTooOld);
+        }
     }
 
     public async Task TriggerHeartbeat(string deviceId)

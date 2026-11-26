@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Remotely.Agent.Extensions;
 using Remotely.Agent.Interfaces;
 using Remotely.Shared;
+using Remotely.Shared.Dtos;
 using Remotely.Shared.Enums;
 using Remotely.Shared.Helpers;
 using Remotely.Shared.Interfaces;
@@ -757,6 +758,96 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         _hubConnection.On(nameof(TriggerHeartbeat), TriggerHeartbeat);
 
         _hubConnection.On<string>(nameof(WakeDevice), WakeDevice);
+
+        // Explorateur de fichiers : le serveur attend la réponse.
+        _hubConnection.On<string, DeviceFileListDto>(nameof(ListDeviceDirectory), ListDeviceDirectory);
+        _hubConnection.On<string, string, string>(nameof(SendDeviceFile), SendDeviceFile);
+        _hubConnection.On<string[], string, string, string>(nameof(ReceiveFilesToFolder), ReceiveFilesToFolder);
+    }
+
+    private const string NotVerified = "Serveur non vérifié par l'agent.";
+
+    public Task<DeviceFileListDto> ListDeviceDirectory(string path)
+    {
+        if (!_isServerVerified)
+        {
+            return Task.FromResult(new DeviceFileListDto { Path = path, Error = NotVerified });
+        }
+        return Task.Run(() => DeviceDirectory.List(path));
+    }
+
+    // Fichier du poste envoyé au serveur (jeton à usage unique), qui le propose au navigateur.
+    public async Task<string> SendDeviceFile(string path, string expiringToken)
+    {
+        try
+        {
+            if (!_isServerVerified)
+            {
+                return NotVerified;
+            }
+
+            var file = new FileInfo(path);
+            if (!file.Exists)
+            {
+                return "Fichier introuvable.";
+            }
+            if (file.Length > AppConstants.MaxUploadFileSize)
+            {
+                return $"Fichier trop gros ({AppConstants.MaxUploadFileSize / 1000 / 1000} Mo au plus).";
+            }
+
+            await using var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+            using var client = _httpFactory.CreateClient();
+            client.DefaultRequestHeaders.Add(AppConstants.ExpiringTokenHeaderName, expiringToken);
+            var url = $"{_connectionInfo?.Host}/api/FileSharing/from-device?name={Uri.EscapeDataString(file.Name)}";
+            using var response = await client.PostAsync(url, content);
+            return response.IsSuccessStatusCode ? string.Empty : $"Envoi refusé par le serveur ({(int)response.StatusCode}).";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while sending a device file to the server.");
+            return ex.Message;
+        }
+    }
+
+    // Fichiers partagés téléchargés dans un dossier choisi par le technicien (rien n'est écrasé).
+    public async Task<string> ReceiveFilesToFolder(string[] fileIds, string folder, string expiringToken)
+    {
+        try
+        {
+            if (!_isServerVerified)
+            {
+                return NotVerified;
+            }
+            if (!Directory.Exists(folder))
+            {
+                return "Dossier introuvable.";
+            }
+
+            foreach (var fileId in fileIds)
+            {
+                using var client = _httpFactory.CreateClient();
+                client.DefaultRequestHeaders.Add(AppConstants.ExpiringTokenHeaderName, expiringToken);
+                using var response = await client.GetAsync($"{_connectionInfo?.Host}/API/FileSharing/{fileId}");
+                response.EnsureSuccessStatusCode();
+
+                var disposition = response.Content.Headers.ContentDisposition;
+                var fileName = PathSanitizer.GetSafeFileName(
+                    (disposition?.FileNameStar ?? disposition?.FileName)?.Trim('"') ?? Path.GetRandomFileName());
+
+                await using var rs = await response.Content.ReadAsStreamAsync();
+                await using var fs = new FileStream(DeviceDirectory.GetFreePath(folder, fileName), FileMode.CreateNew);
+                await rs.CopyToAsync(fs);
+            }
+            return string.Empty;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while receiving files into a device folder.");
+            return ex.Message;
+        }
     }
 
     private async Task<bool> VerifyServer()

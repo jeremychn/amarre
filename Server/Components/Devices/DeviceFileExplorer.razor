@@ -1,0 +1,220 @@
+@inherits AuthComponentBase
+@using Remotely.Shared
+@using Remotely.Shared.Dtos
+@inject ICircuitConnection CircuitConnection
+@inject IDataService DataService
+@inject IToastService ToastService
+@inject NavigationManager NavigationManager
+
+@* Explorateur de fichiers du poste (agents 1.27+) : parcourir, télécharger, envoyer dans un dossier.
+   Tout passe par l'agent ; rien ne s'ouvre sur le bureau de l'utilisateur. *@
+
+<div class="d-flex gap-2 mt-3 mb-2">
+    <button class="btn btn-secondary" title="Dossier parent" disabled="@(_busy || string.IsNullOrEmpty(_listing?.Path))"
+            @onclick="() => Load(_listing?.ParentPath)">
+        <i class="oi oi-arrow-top"></i>
+    </button>
+    <input class="form-control" placeholder="Chemin (vide : lecteurs du poste)"
+           @bind="_pathInput" @bind:event="oninput" @onkeydown="OnPathKeyDown" />
+    <button class="btn btn-primary" disabled="@_busy" @onclick="() => Load(_pathInput)">Ouvrir</button>
+    <button class="btn btn-secondary" title="Actualiser" disabled="@_busy" @onclick="() => Load(_listing?.Path)">
+        <i class="oi oi-reload"></i>
+    </button>
+</div>
+
+@if (!string.IsNullOrEmpty(_listing?.Path))
+{
+    <div class="mb-2">
+        <label class="btn btn-sm btn-outline-primary mb-0 @(_busy ? "disabled" : "")">
+            <i class="oi oi-data-transfer-upload"></i> Envoyer des fichiers dans ce dossier
+            <InputFile class="d-none" multiple OnChange="UploadFiles" disabled="@_busy" />
+        </label>
+        @if (!string.IsNullOrEmpty(_status))
+        {
+            <span class="ms-2 text-muted">@_status</span>
+        }
+    </div>
+}
+
+@if (_error is not null)
+{
+    <div class="alert alert-warning">@_error</div>
+}
+@if (_listing?.Truncated == true)
+{
+    <div class="alert alert-info">Dossier tronqué aux @DeviceFileListDto.MaxEntries premiers éléments.</div>
+}
+
+@if (_listing is not null)
+{
+    <table class="table table-sm table-hover">
+        <thead>
+            <tr>
+                <th>Nom</th>
+                <th class="text-end">Taille</th>
+                <th>Modifié</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in _listing.Entries)
+            {
+                <tr>
+                    @if (entry.IsDirectory)
+                    {
+                        <td class="pointer" @onclick="() => Load(entry.FullPath)">
+                            <i class="oi oi-folder me-1"></i> @entry.Name
+                        </td>
+                    }
+                    else
+                    {
+                        <td><i class="oi oi-file me-1"></i> @entry.Name</td>
+                    }
+                    <td class="text-end">@(entry.IsDirectory && string.IsNullOrEmpty(_listing.Path) ? FormatSize(entry.Size) : entry.IsDirectory ? "" : FormatSize(entry.Size))</td>
+                    <td>@entry.LastModified?.LocalDateTime.ToString("dd/MM/yyyy HH:mm")</td>
+                    <td class="text-end">
+                        @if (!entry.IsDirectory)
+                        {
+                            <button class="btn btn-sm btn-link p-0" disabled="@_busy" @onclick="() => Download(entry)">Télécharger</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string DeviceId { get; set; } = string.Empty;
+
+    private DeviceFileListDto? _listing;
+    private string _pathInput = string.Empty;
+    private string? _error;
+    private string? _status;
+    private bool _busy;
+
+    // Après le premier rendu : pendant le pré-rendu, le circuit (et son utilisateur) n'existe pas encore.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        if (firstRender)
+        {
+            await Load(string.Empty);
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnPathKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Enter")
+        {
+            await Load(_pathInput);
+        }
+    }
+
+    private async Task Load(string? path)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var result = await CircuitConnection.ListDeviceDirectory(DeviceId, path ?? string.Empty);
+            if (!result.IsSuccess)
+            {
+                _error = result.Reason;
+                return;
+            }
+            if (!string.IsNullOrEmpty(result.Value.Error))
+            {
+                _error = result.Value.Error;
+                return;
+            }
+            _listing = result.Value;
+            _pathInput = _listing.Path;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task Download(DeviceFileEntryDto entry)
+    {
+        _busy = true;
+        _status = $"Récupération de {entry.Name}…";
+        try
+        {
+            var result = await CircuitConnection.DownloadDeviceFile(DeviceId, entry.FullPath);
+            if (!result.IsSuccess)
+            {
+                ToastService.ShowToast2(result.Reason, ToastType.Warning);
+                return;
+            }
+            // Réponse en pièce jointe : le navigateur télécharge sans quitter la page (une fenêtre
+            // ouverte après un appel asynchrone serait bloquée comme fenêtre surgissante).
+            NavigationManager.NavigateTo($"/api/FileSharing/download/{result.Value}", forceLoad: true);
+        }
+        finally
+        {
+            _status = null;
+            _busy = false;
+        }
+    }
+
+    private async Task UploadFiles(InputFileChangeEventArgs args)
+    {
+        EnsureUserSet();
+        var folder = _listing?.Path;
+        if (string.IsNullOrEmpty(folder))
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var fileIds = new List<string>();
+            foreach (var file in args.GetMultipleFiles(20))
+            {
+                if (file.Size > AppConstants.MaxUploadFileSize)
+                {
+                    ToastService.ShowToast2($"{file.Name} : plus de {AppConstants.MaxUploadFileSize / 1000 / 1000} Mo, ignoré.", ToastType.Warning);
+                    continue;
+                }
+                _status = $"Envoi de {file.Name}…";
+                StateHasChanged();
+                fileIds.Add(await DataService.AddSharedFile(file, User.OrganizationID, (_, _) => { }));
+            }
+
+            if (fileIds.Count == 0)
+            {
+                return;
+            }
+
+            var result = await CircuitConnection.UploadFilesToDeviceFolder(DeviceId, folder, fileIds.ToArray());
+            if (result.IsSuccess)
+            {
+                ToastService.ShowToast2($"{fileIds.Count} fichier(s) envoyé(s).", ToastType.Success);
+            }
+            else
+            {
+                ToastService.ShowToast2(result.Reason, ToastType.Warning);
+            }
+        }
+        finally
+        {
+            _status = null;
+            _busy = false;
+        }
+        await Load(folder);
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1_000_000_000 => $"{bytes / 1_000_000_000.0:0.#} Go",
+        >= 1_000_000 => $"{bytes / 1_000_000.0:0.#} Mo",
+        >= 1_000 => $"{bytes / 1_000.0:0.#} Ko",
+        _ => $"{bytes} o",
+    };
+}

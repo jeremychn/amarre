@@ -119,6 +119,12 @@
                             </FileInputButton>
                         </li>
                         <li>
+                            <button class="dropdown-item" @onclick="OpenFileExplorer" disabled="@(!Device.IsOnline)">
+                                <i class="oi oi-folder" title="Fichiers du poste"></i>
+                                <span class="ms-2">Fichiers du poste</span>
+                            </button>
+                        </li>
+                        <li>
                             <button class="dropdown-item" @onclick="UpdateAgent" disabled="@(!Device.IsOnline)">
                                 <i class="oi oi-cloud-download" title="Mettre à jour l'agent"></i>
                                 <span class="ms-2">Mettre à jour l'agent</span>

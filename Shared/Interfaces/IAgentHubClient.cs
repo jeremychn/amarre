@@ -1,4 +1,5 @@
-﻿using Remotely.Shared.Enums;
+﻿using Remotely.Shared.Dtos;
+using Remotely.Shared.Enums;
 
 namespace Remotely.Shared.Interfaces;
 public interface IAgentHubClient
@@ -87,4 +88,15 @@ public interface IAgentHubClient
     Task TriggerHeartbeat();
 
     Task WakeDevice(string macAddress);
+
+    // Explorateur de fichiers (agents 1.27+) : appels avec résultat, attendus par le serveur.
+
+    /// <summary>Contenu d'un dossier ; chemin vide = racine.</summary>
+    Task<DeviceFileListDto> ListDeviceDirectory(string path);
+
+    /// <summary>Envoie un fichier du poste au serveur ; renvoie un message d'erreur, vide si l'envoi a réussi.</summary>
+    Task<string> SendDeviceFile(string path, string expiringToken);
+
+    /// <summary>Télécharge des fichiers partagés dans un dossier du poste ; renvoie un message d'erreur, vide si tout a réussi.</summary>
+    Task<string> ReceiveFilesToFolder(string[] fileIds, string folder, string expiringToken);
 }

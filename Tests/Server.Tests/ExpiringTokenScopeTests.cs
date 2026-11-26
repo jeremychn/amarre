@@ -16,6 +16,19 @@ public class ExpiringTokenScopeTests
     private static readonly Guid ScriptId = Guid.NewGuid();
 
     [TestMethod]
+    public void EnvoiDuPoste_UneFois_CinqMinutes_RienDAutre()
+    {
+        var scope = ExpiringTokenScope.ForDeviceUpload(OrgId, DeviceId, Now);
+
+        Assert.IsFalse(scope.CanReadFile("fichier", Now));
+        Assert.IsFalse(scope.CanReadScript(ScriptId, Now));
+        Assert.IsFalse(ExpiringTokenScope.ForDeviceUpload(OrgId, DeviceId, Now).TryUseForUpload(Now.AddMinutes(6)));
+        Assert.IsTrue(scope.TryUseForUpload(Now.AddMinutes(1)));
+        Assert.IsFalse(scope.TryUseForUpload(Now.AddMinutes(1)));
+        Assert.IsFalse(ExpiringTokenScope.ForFiles(OrgId, DeviceId, ["f"], Now).TryUseForUpload(Now));
+    }
+
+    [TestMethod]
     public void Script_SeulementLeScriptDuJeton_PendantDeuxMinutes()
     {
         var scope = ExpiringTokenScope.ForScriptRun(OrgId, DeviceId, ScriptId, 7, Now);

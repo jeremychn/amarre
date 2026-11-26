@@ -37,6 +37,8 @@ public interface IDataService
 
     Task<string> AddSharedFile(IBrowserFile file, string organizationId, Action<double, string> progressCallback);
 
+    Task<string> AddSharedFile(string fileName, byte[] fileContents, string contentType, string organizationId);
+
 
     bool AddUserToDeviceGroup(string orgId, string groupId, string userName, out string resultMessage);
 
@@ -2340,6 +2342,9 @@ public class DataService : IDataService
 
         return isValid;
     }
+
+    public Task<string> AddSharedFile(string fileName, byte[] fileContents, string contentType, string organizationId) =>
+        AddSharedFileImpl(fileName, fileContents, contentType, organizationId);
 
     private async Task<string> AddSharedFileImpl(
         string fileName,
