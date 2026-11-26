@@ -39,7 +39,7 @@ public class IoCActivator
                 .AddEntityFrameworkStores<AppDb>()
                 .AddDefaultTokenProviders();
 
-        _builder.Services.AddTransient<IAppDbFactory, AppDbFactory>();
+        _builder.Services.AddTransient<IAppDbFactory, TestingDbFactory>();
         _builder.Services.AddTransient<IDataService, DataService>();
         _builder.Services.AddTransient<IEmailSenderEx, EmailSenderEx>();
 

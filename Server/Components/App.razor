@@ -4,7 +4,7 @@
 @inject IThemeProvider ThemeProvider
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=550, user-scalable=no" />
@@ -29,6 +29,23 @@
 </head>
 <body>
     <Routes @rendermode="RenderModeForPage" />
+    @* Fenêtre de reconnexion en français : sans cet élément, blazor.web.js affiche la sienne, en anglais
+       (redémarrage du serveur, coupure réseau). Il lui ajoute les classes components-reconnect-*. *@
+    <div id="components-reconnect-modal" data-nosnippet>
+        <div class="reconnect-box">
+            <p class="reconnect-first">Connexion au serveur perdue. Reconnexion…</p>
+            <p class="reconnect-repeated">Reconnexion impossible pour l'instant. Nouvel essai dans <span id="components-seconds-to-next-attempt"></span> s.</p>
+            <p class="reconnect-failed">Reconnexion impossible. <button type="button" class="btn btn-sm btn-primary" onclick="Blazor.reconnect()">Réessayer</button> <button type="button" class="btn btn-sm btn-secondary" onclick="location.reload()">Recharger la page</button></p>
+            <p class="reconnect-rejected">Le serveur a redémarré : rechargement de la page… <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Recharger la page</button></p>
+            <p class="reconnect-paused">Session mise en pause par le serveur. <button type="button" class="btn btn-sm btn-primary" onclick="Blazor.resumeCircuit()">Reprendre</button></p>
+            <p class="reconnect-resume-failed">Impossible de reprendre la session. <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Recharger la page</button></p>
+        </div>
+    </div>
+    <script>
+        // Session perdue (serveur redémarré) : rien à reprendre, la page se recharge seule.
+        document.getElementById("components-reconnect-modal").addEventListener("components-reconnect-state-changed",
+            e => { if (e.detail.state === "rejected") location.reload(); });
+    </script>
     <script src="_framework/blazor.web.js"></script>
     <script src="/lib/bootstrap/bootstrap.bundle.min.js"></script>
 </body>

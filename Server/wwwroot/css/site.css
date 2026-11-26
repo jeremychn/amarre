@@ -91,9 +91,51 @@ input[disabled], input[readonly], select[disabled] {
     cursor: pointer;
 }
 
+/* Fenêtre de reconnexion (App.razor) : cachée, sauf pendant une coupure */
 #components-reconnect-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(0, 0, 0, .4);
     color: black;
 }
+
+    #components-reconnect-modal.components-reconnect-show,
+    #components-reconnect-modal.components-reconnect-retrying,
+    #components-reconnect-modal.components-reconnect-failed,
+    #components-reconnect-modal.components-reconnect-rejected,
+    #components-reconnect-modal.components-reconnect-paused,
+    #components-reconnect-modal.components-reconnect-resume-failed {
+        display: block;
+    }
+
+    #components-reconnect-modal .reconnect-box {
+        background: white;
+        border-radius: .5rem;
+        margin: 20vh auto 0;
+        max-width: 28rem;
+        padding: 1rem 1.25rem;
+    }
+
+    #components-reconnect-modal .reconnect-box p {
+        display: none;
+        margin: 0;
+    }
+
+    #components-reconnect-modal.components-reconnect-show .reconnect-first,
+    #components-reconnect-modal.components-reconnect-retrying .reconnect-repeated,
+    #components-reconnect-modal.components-reconnect-failed .reconnect-failed,
+    #components-reconnect-modal.components-reconnect-rejected .reconnect-rejected,
+    #components-reconnect-modal.components-reconnect-paused .reconnect-paused,
+    #components-reconnect-modal.components-reconnect-resume-failed .reconnect-resume-failed {
+        display: block;
+    }
+
+    /* Nouvel essai : blazor.web.js garde la classe « show » et ajoute « retrying » */
+    #components-reconnect-modal.components-reconnect-retrying .reconnect-first {
+        display: none;
+    }
 
 /* Harmonisation de l'interface */
 .content h3 {

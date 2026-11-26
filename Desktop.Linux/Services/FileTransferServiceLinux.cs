@@ -153,7 +153,7 @@ public class FileTransferServiceLinux : IFileTransferService
         {
             _messageBoxPending = true;
 
-            await _dialogProvider.Show($"File tranfer complete.  Files saved to directory:\n\n{GetBaseDirectory()}",
+            await _dialogProvider.Show($"Transfert terminé. Fichiers enregistrés dans :\n\n{GetBaseDirectory()}",
                 "Tranfer Complete",
                 MessageBoxType.OK);
 

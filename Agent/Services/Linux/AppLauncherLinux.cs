@@ -47,15 +47,15 @@ public class AppLauncherLinux : IAppLauncher
             if (!File.Exists(_rcBinaryPath))
             {
                 await hubConnection.SendAsync("DisplayMessage",
-                    "Chat executable not found on target device.",
-                    "Executable not found on device.",
+                    "Programme de chat introuvable sur le poste.",
+                    "Programme introuvable sur le poste.",
                     "bg-danger",
                     userConnectionId);
             }
 
 
             // Start Desktop app.
-            await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
+            await hubConnection.SendAsync("DisplayMessage", "Démarrage du chat.", "Starting chat service.", "bg-success", userConnectionId);
             var args = GetDesktopArguments("Chat", requesterName, orgName, orgId);
             // Nom du tube sur l'entrée standard, comme la clé d'accès.
             args.AddRange(["--pipe-name", DesktopAccessKey.FromStandardInput]);
@@ -64,7 +64,7 @@ public class AppLauncherLinux : IAppLauncher
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while starting chat.");
-            await hubConnection.SendAsync("DisplayMessage", "Chat service failed to start on target device.", "Failed to start chat service.", "bg-danger", userConnectionId);
+            await hubConnection.SendAsync("DisplayMessage", "Le chat n'a pas pu démarrer sur le poste.", "Échec du démarrage du chat.", "bg-danger", userConnectionId);
         }
         return -1;
     }
@@ -76,8 +76,8 @@ public class AppLauncherLinux : IAppLauncher
             if (!File.Exists(_rcBinaryPath))
             {
                 await hubConnection.SendAsync("DisplayMessage",
-                    "Remote control executable not found on target device.",
-                    "Executable not found on device.",
+                    "Programme de prise en main introuvable sur le poste.",
+                    "Programme introuvable sur le poste.",
                     "bg-danger",
                     userConnectionId);
                 return;
@@ -85,7 +85,7 @@ public class AppLauncherLinux : IAppLauncher
 
 
             // Start Desktop app.
-            await hubConnection.SendAsync("DisplayMessage", "Starting remote control.", "Starting remote control.", "bg-success", userConnectionId);
+            await hubConnection.SendAsync("DisplayMessage", "Démarrage de la prise en main.", "Démarrage de la prise en main.", "bg-success", userConnectionId);
             var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
             args.AddRange(["--session-id", sessionId, "--access-key", DesktopAccessKey.FromStandardInput]);
             StartLinuxDesktopApp(args, accessKey);
@@ -93,7 +93,7 @@ public class AppLauncherLinux : IAppLauncher
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error while launching remote control.");
-            await hubConnection.SendAsync("DisplayMessage", "Remote control failed to start on target device.", "Failed to start remote control.", "bg-danger", userConnectionId);
+            await hubConnection.SendAsync("DisplayMessage", "La prise en main n'a pas pu démarrer sur le poste.", "Échec du démarrage de la prise en main.", "bg-danger", userConnectionId);
         }
     }
 

@@ -34,12 +34,12 @@ public class AppLauncherWin : IAppLauncher
         {
             if (!File.Exists(_rcBinaryPath))
             {
-                await hubConnection.SendAsync("DisplayMessage", "Chat executable not found on target device.", "Executable not found on device.", "bg-danger", userConnectionId);
+                await hubConnection.SendAsync("DisplayMessage", "Programme de chat introuvable sur le poste.", "Programme introuvable sur le poste.", "bg-danger", userConnectionId);
             }
 
 
             // Start Desktop app.
-            await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
+            await hubConnection.SendAsync("DisplayMessage", "Démarrage du chat.", "Starting chat service.", "bg-success", userConnectionId);
             var args = GetDesktopArguments("Chat", requesterName, orgName, orgId);
 
             var processId = StartDesktopApp(args, targetSessionId: -1, pipeName: pipeName);
@@ -49,8 +49,8 @@ public class AppLauncherWin : IAppLauncher
             }
 
             await hubConnection.SendAsync("DisplayMessage",
-                "Chat service failed to start on target device.",
-                "Failed to start chat service.",
+                "Le chat n'a pas pu démarrer sur le poste.",
+                "Échec du démarrage du chat.",
                 "bg-danger",
                 userConnectionId);
         }
@@ -58,8 +58,8 @@ public class AppLauncherWin : IAppLauncher
         {
             _logger.LogError(ex, "Error while launching chat.");
             await hubConnection.SendAsync("DisplayMessage",
-                "Chat service failed to start on target device.",
-                "Failed to start chat service.",
+                "Le chat n'a pas pu démarrer sur le poste.",
+                "Échec du démarrage du chat.",
                 "bg-danger",
                 userConnectionId);
         }
@@ -73,8 +73,8 @@ public class AppLauncherWin : IAppLauncher
             if (!File.Exists(_rcBinaryPath))
             {
                 await hubConnection.SendAsync("DisplayMessage",
-                    "Remote control executable not found on target device.",
-                    "Executable not found on device.",
+                    "Programme de prise en main introuvable sur le poste.",
+                    "Programme introuvable sur le poste.",
                     "bg-danger",
                     userConnectionId);
                 return;
@@ -83,8 +83,8 @@ public class AppLauncherWin : IAppLauncher
 
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage",
-                "Starting remote control",
-                "Starting remote control",
+                "Démarrage de la prise en main",
+                "Démarrage de la prise en main",
                 "bg-success",
                 userConnectionId);
 
@@ -94,8 +94,8 @@ public class AppLauncherWin : IAppLauncher
             if (StartDesktopApp(args, targetSessionId, accessKey) <= 0)
             {
                 await hubConnection.SendAsync("DisplayMessage",
-                    "Remote control failed to start on target device.",
-                    "Failed to start remote control.",
+                    "La prise en main n'a pas pu démarrer sur le poste.",
+                    "Échec du démarrage de la prise en main.",
                     "bg-danger",
                     userConnectionId);
             }
@@ -104,8 +104,8 @@ public class AppLauncherWin : IAppLauncher
         {
             _logger.LogError(ex, "Error while launching remote control.");
             await hubConnection.SendAsync("DisplayMessage",
-                "Remote control failed to start on target device.",
-                "Failed to start remote control.",
+                "La prise en main n'a pas pu démarrer sur le poste.",
+                "Échec du démarrage de la prise en main.",
                 "bg-danger",
                 userConnectionId);
         }
@@ -134,8 +134,8 @@ public class AppLauncherWin : IAppLauncher
                 _logger.LogWarning("Failed to relaunch screen caster.");
                 await hubConnection.SendAsync("SendConnectionFailedToViewers", viewerIds);
                 await hubConnection.SendAsync("DisplayMessage",
-                    "Remote control failed to start on target device.",
-                    "Failed to start remote control.",
+                    "La prise en main n'a pas pu démarrer sur le poste.",
+                    "Échec du démarrage de la prise en main.",
                     "bg-danger",
                     userConnectionId);
             }

@@ -198,7 +198,7 @@ public class MainViewViewModel : BrandedViewModelBase, IMainViewViewModel
                     await _dispatcher.InvokeAsync(() =>
                     {
                         Viewers.Clear();
-                        StatusMessage = "Disconnected";
+                        StatusMessage = "Déconnecté";
                     });
                 };
 
@@ -207,7 +207,7 @@ public class MainViewViewModel : BrandedViewModelBase, IMainViewViewModel
                     await _dispatcher.InvokeAsync(() =>
                     {
                         Viewers.Clear();
-                        StatusMessage = "Reconnecting";
+                        StatusMessage = "Reconnexion…";
                     });
                 };
 
@@ -228,7 +228,7 @@ public class MainViewViewModel : BrandedViewModelBase, IMainViewViewModel
         }
 
         // If we got here, something went wrong.
-        StatusMessage = "Failed";
+        StatusMessage = "Échec";
         await _dialogProvider.Show("Échec de la connexion au serveur.", "Échec de la connexion", MessageBoxType.OK);
     }
 

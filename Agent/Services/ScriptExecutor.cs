@@ -92,7 +92,7 @@ public class ScriptExecutor : IScriptExecutor
         {
             _logger.LogError(ex, "Error while running command from terminal.");
             await hubConnection.SendAsync("DisplayMessage",
-                "There was an error executing the command. It has been logged on the client device.",
+                "Erreur pendant l'exécution de la commande. Le détail est dans le journal du poste.",
                 "Error executing command.",
                 "bg-danger",
                 senderConnectionID);

@@ -209,9 +209,9 @@ public class ExternalScriptingShell : IExternalScriptingShell
             SenderConnectionID = _senderConnectionId,
             DeviceID = _configService.GetConnectionInfo().DeviceID,
             StandardOutput = _standardOut.Split(Environment.NewLine),
-            ErrorOutput = (new[] { "WARNING: The command execution timed out and was forced to return before finishing.  " +
-                "The results may be partial, and the terminal process has been reset.  " +
-                "Please note that interactive commands aren't supported."})
+            ErrorOutput = (new[] { "ATTENTION : la commande a dépassé le délai et a été interrompue avant la fin. " +
+                "Les résultats peuvent être incomplets et le terminal a été réinitialisé. " +
+                "Les commandes interactives ne sont pas prises en charge."})
                 .Concat(_errorOut.Split(Environment.NewLine))
                 .ToArray(),
             HadErrors = !string.IsNullOrWhiteSpace(_errorOut) ||

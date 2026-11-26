@@ -13,14 +13,12 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Remove="Assets\avalonia-logo.ico" />
 	  <None Remove="Assets\DefaultIcon.ico" />
 	  <None Remove="Assets\DefaultIcon.png" />
 	  <None Remove="Assets\Gear.png" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <AvaloniaResource Include="Assets\avalonia-logo.ico" />
 	  <AvaloniaResource Include="Assets\DefaultIcon.ico" />
 	  <AvaloniaResource Include="Assets\DefaultIcon.png" />
 	  <AvaloniaResource Include="Assets\Gear.png" />

@@ -220,8 +220,8 @@ public class FileTransferServiceWin : IFileTransferService
                 return;
             }
 
-            _result = await _dialogProvider.Show("File transfer complete.  Show folder?",
-                "Transfer Complete",
+            _result = await _dialogProvider.Show("Transfert terminé. Ouvrir le dossier ?",
+                "Transfert terminé",
                 MessageBoxType.YesNo);
 
             if (_result == MessageBoxResult.Yes)

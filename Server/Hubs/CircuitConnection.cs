@@ -235,8 +235,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         if (!_agentSessionCache.TryGetByDeviceId(deviceId, out var targetDevice))
         {
             var message = new DisplayNotificationMessage(
-                 "The selected device is not online.",
-                 "Device is not online.",
+                 "L'appareil sélectionné n'est pas en ligne.",
+                 "Appareil hors ligne.",
                  "bg-warning");
 
             await _messenger.Send(message, ConnectionId);
@@ -259,8 +259,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
         if (!_agentSessionCache.TryGetConnectionId(targetDevice.ID, out var serviceConnectionId))
         {
             var message = new DisplayNotificationMessage(
-                "Service connection not found.",
-                "Service connection not found.",
+                "Connexion de l'agent introuvable.",
+                "Connexion de l'agent introuvable.",
                 "bg-warning");
             
             await _messenger.Send(message, ConnectionId);
@@ -462,8 +462,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             if (tags.Length > 200)
             {
                 var message = new DisplayNotificationMessage(
-                     $"Tag must be 200 characters or less. Supplied length is {tags.Length}.",
-                    "Tag must be under 200 characters.",
+                     $"Les étiquettes sont limitées à 200 caractères ({tags.Length} saisis).",
+                    "200 caractères au plus.",
                     "bg-warning");
 
                 await _messenger.Send(message, ConnectionId);
@@ -473,8 +473,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
             await _dataService.UpdateTags(deviceID, tags);
 
             var successMessage = new DisplayNotificationMessage(
-                "Device updated successfully.",
-                "Device updated.",
+                "Appareil mis à jour.",
+                "Appareil mis à jour.",
                 "bg-success");
 
             await _messenger.Send(successMessage, ConnectionId);

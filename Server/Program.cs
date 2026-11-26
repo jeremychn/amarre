@@ -220,6 +220,12 @@ services.AddRateLimiter(options =>
                 $"{context.Connection.RemoteIpAddress}",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) })
             : RateLimitPartition.GetNoLimiter(string.Empty));
+    options.OnRejected = (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+        return new ValueTask(context.HttpContext.Response.WriteAsync(
+            "Trop de tentatives : réessayez dans une minute.", cancellationToken));
+    };
 
     options.AddConcurrencyLimiter(RatePolicyNames.AgentUpdateDownloads, clOptions =>
     {

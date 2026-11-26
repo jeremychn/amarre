@@ -118,7 +118,7 @@ public class FileTransferWindowViewModel : BrandedViewModelBase, IFileTransferWi
         var startFolder = await window.StorageProvider.TryGetFolderFromPathAsync(new Uri(initialDir));
         var result = await window.StorageProvider.OpenFilePickerAsync(new()
         {
-            Title = "Upload File via Remotely",
+            Title = "Envoyer des fichiers",
             AllowMultiple = true,
             SuggestedStartLocation = startFolder
         });
