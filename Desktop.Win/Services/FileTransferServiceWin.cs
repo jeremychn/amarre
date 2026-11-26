@@ -1,4 +1,5 @@
-﻿using Remotely.Desktop.Shared.Abstractions;
+﻿using Remotely.Desktop.Native.Windows;
+using Remotely.Desktop.Shared.Abstractions;
 using Remotely.Desktop.Shared.Services;
 using Remotely.Desktop.Shared.ViewModels;
 using Remotely.Desktop.UI.Controls.Dialogs;
@@ -210,26 +211,43 @@ public class FileTransferServiceWin : IFileTransferService
         // Prevent multiple dialogs from popping up.
         if (_result is null)
         {
-            // Sous SYSTEM, explorer.exe lancé d'ici tournerait avec ces droits sur le bureau de l'utilisateur.
-            if (SystemAccount.IsCurrent)
-            {
-                _result = await _dialogProvider.Show($"Transfert terminé. Fichiers enregistrés dans :\n\n{GetBaseDirectory()}",
-                    "Transfert terminé",
-                    MessageBoxType.OK);
-                _result = null;
-                return;
-            }
-
             _result = await _dialogProvider.Show("Transfert terminé. Ouvrir le dossier ?",
                 "Transfert terminé",
                 MessageBoxType.YesNo);
 
-            if (_result == MessageBoxResult.Yes)
+            if (_result == MessageBoxResult.Yes && !OpenFolder(GetBaseDirectory()))
             {
-                Process.Start("explorer.exe", GetBaseDirectory());
+                await _dialogProvider.Show($"Fichiers enregistrés dans :\n\n{GetBaseDirectory()}",
+                    "Transfert terminé",
+                    MessageBoxType.OK);
             }
 
             _result = null;
+        }
+    }
+
+    // Sous SYSTEM (prise en main sans surveillance), l'explorateur est lancé sous le compte de
+    // l'utilisateur connecté : lancé d'ici, il tournerait en SYSTEM sur son bureau. Faux si
+    // personne n'est connecté (écran d'ouverture de session) ou si le lancement échoue.
+    private bool OpenFolder(string folder)
+    {
+        try
+        {
+            if (!SystemAccount.IsCurrent)
+            {
+                Process.Start("explorer.exe", folder);
+                return true;
+            }
+
+            var explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            return Win32Interop.CreateProcessAsSessionUser(
+                WindowsCommandLine.Build(explorer, [folder]),
+                (uint)Process.GetCurrentProcess().SessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error while opening the shared files folder.");
+            return false;
         }
     }
 }

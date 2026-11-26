@@ -207,6 +207,71 @@ public class Win32Interop
         return result;
     }
 
+    /// <summary>
+    /// Lance un programme sous le compte de l'utilisateur connecté à la session (pas sous SYSTEM),
+    /// sur son bureau et avec son environnement. Faux si personne n'est connecté à la session ou si
+    /// le processus courant n'a pas le droit de lire son jeton (réservé à SYSTEM).
+    /// </summary>
+    public static bool CreateProcessAsSessionUser(string commandLine, uint sessionId)
+    {
+        if (!WTSQueryUserToken(sessionId, out var userToken))
+        {
+            return false;
+        }
+
+        var environmentBlock = nint.Zero;
+        try
+        {
+            if (!CreateUserEnvironmentBlock(out environmentBlock, userToken, false))
+            {
+                environmentBlock = nint.Zero;
+            }
+
+            var sa = new SECURITY_ATTRIBUTES();
+            sa.Length = Marshal.SizeOf(sa);
+            var si = new STARTUPINFO();
+            si.cb = Marshal.SizeOf(si);
+            si.lpDesktop = @"winsta0\default";
+
+            var started = CreateProcessAsUser(
+                userToken,
+                null,
+                commandLine,
+                ref sa,
+                ref sa,
+                false,
+                NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT,
+                environmentBlock,
+                null,
+                ref si,
+                out var procInfo);
+
+            if (started)
+            {
+                Kernel32.CloseHandle(procInfo.hProcess);
+                Kernel32.CloseHandle(procInfo.hThread);
+            }
+            return started;
+        }
+        finally
+        {
+            if (environmentBlock != nint.Zero)
+            {
+                DestroyUserEnvironmentBlock(environmentBlock);
+            }
+            Kernel32.CloseHandle(userToken);
+        }
+    }
+
+    [DllImport("wtsapi32.dll", SetLastError = true)]
+    private static extern bool WTSQueryUserToken(uint sessionId, out nint token);
+
+    [DllImport("userenv.dll", SetLastError = true, EntryPoint = "CreateEnvironmentBlock")]
+    private static extern bool CreateUserEnvironmentBlock(out nint environment, nint token, bool inherit);
+
+    [DllImport("userenv.dll", SetLastError = true, EntryPoint = "DestroyEnvironmentBlock")]
+    private static extern bool DestroyUserEnvironmentBlock(nint environment);
+
     // Bloc d'environnement Unicode (CREATE_UNICODE_ENVIRONMENT) : celui du processus courant,
     // complété par les variables données, trié sans tenir compte de la casse, terminé par deux zéros.
     private static nint CreateEnvironmentBlock(IReadOnlyDictionary<string, string> environment)
