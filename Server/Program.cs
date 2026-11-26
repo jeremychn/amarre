@@ -317,6 +317,12 @@ app.Use(async (context, next) =>
     headers["X-Frame-Options"] = "SAMEORIGIN";
     headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     headers["X-Permitted-Cross-Domain-Policies"] = "none";
+    // Redirection vers l'hôte de la requête (en-tête Host choisi par le client) : chemin relatif.
+    context.Response.OnStarting(() =>
+    {
+        SameHostRedirect.Apply(context);
+        return Task.CompletedTask;
+    });
     await next();
 });
 
