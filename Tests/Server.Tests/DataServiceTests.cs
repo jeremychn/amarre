@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Remotely.Server.Services;
@@ -556,6 +556,44 @@ public class DataServiceTests
     public void TestCleanup()
     {
         _testData.ClearData();
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task GetSettings_OldAllowApiLoginKey_IsIgnored()
+    {
+        // Réglages enregistrés avant le retrait de la connexion par l'API.
+        var dbFactory = IoCActivator.ServiceProvider.GetRequiredService<Remotely.Server.Data.IAppDbFactory>();
+        await _dataService.GetSettings();
+        string? original;
+        using (var db = dbFactory.GetContext())
+        {
+            var record = await db.KeyValueRecords.FindAsync(Remotely.Server.Models.SettingsModel.DbKey);
+            original = record!.Value;
+            record.Value = "{\"AllowApiLogin\":true,\"MaxOrganizationCount\":7,\"KnownProxies\":[\"10.0.0.1\"]}";
+            await db.SaveChangesAsync();
+        }
+
+        try
+        {
+            var settings = await _dataService.GetSettings();
+
+            Assert.AreEqual(7, settings.MaxOrganizationCount);
+            CollectionAssert.AreEqual(new[] { "10.0.0.1" }, settings.KnownProxies);
+
+            // Le prochain enregistrement réécrit le JSON sans l'ancienne clé.
+            await _dataService.SaveSettings(settings);
+            using var db = dbFactory.GetContext();
+            var saved = (await db.KeyValueRecords.FindAsync(Remotely.Server.Models.SettingsModel.DbKey))!.Value;
+            Assert.DoesNotContain("AllowApiLogin", saved!);
+        }
+        finally
+        {
+            using var db = dbFactory.GetContext();
+            var record = await db.KeyValueRecords.FindAsync(Remotely.Server.Models.SettingsModel.DbKey);
+            record!.Value = original;
+            await db.SaveChangesAsync();
+        }
     }
 
     [TestInitialize]

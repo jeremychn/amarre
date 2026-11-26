@@ -6,7 +6,6 @@ public class SettingsModel
 {
     public static Guid DbKey { get; } = Guid.Parse("a35d6212-c0b7-49b2-89e1-7ba497f94a35");
 
-    public bool AllowApiLogin { get; set; }
     public List<string> BannedDevices { get; set; } = [];
     public double DataRetentionInDays { get; set; } = 90;
     public string DbProvider { get; set; } = "SQLite";

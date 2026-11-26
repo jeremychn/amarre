@@ -70,13 +70,6 @@
 
 
             <div class="form-group">
-                <label>Autoriser la connexion par l'API</label>
-                <br />
-                <InputCheckbox @bind-Value="Input.AllowApiLogin" autocomplete="off" />
-                <br />
-                <ValidationMessage For="() => Input.AllowApiLogin" />
-            </div>
-            <div class="form-group">
                 <label class="control-label">Appareils bannis</label>
                 <br />
                 <select size="4" class="form-control" @bind="_bannedDeviceSelected">
