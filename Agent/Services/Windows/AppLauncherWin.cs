@@ -1,9 +1,11 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Remotely.Agent.Interfaces;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.Versioning;
@@ -38,42 +40,20 @@ public class AppLauncherWin : IAppLauncher
 
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
-            if (WindowsIdentity.GetCurrent().IsSystem)
+            var args = GetDesktopArguments("Chat", requesterName, orgName, orgId);
+            args.AddRange(["--pipe-name", pipeName]);
+
+            var processId = StartDesktopApp(args, targetSessionId: -1);
+            if (processId > 0)
             {
-                var result = Win32Interop.CreateInteractiveSystemProcess(
-                    _rcBinaryPath +
-                        $" --mode Chat" +
-                        $" --host \"{_connectionInfo.Host}\"" +
-                        $" --pipe-name {pipeName}" +
-                        $" --requester-name \"{requesterName}\"" +
-                        $" --org-name \"{orgName}\"" +
-                        $" --org-id \"{orgId}\"",
-                    targetSessionId: -1,
-                    hiddenWindow: false,
-                    out var procInfo);
-                if (!result)
-                {
-                    await hubConnection.SendAsync("DisplayMessage",
-                        "Chat service failed to start on target device.",
-                        "Failed to start chat service.",
-                        "bg-danger",
-                        userConnectionId);
-                }
-                else
-                {
-                    return procInfo.dwProcessId;
-                }
+                return processId;
             }
-            else
-            {
-                return Process.Start(_rcBinaryPath,
-                    $" --mode Chat" +
-                    $" --host \"{_connectionInfo.Host}\"" +
-                    $" --requester-name \"{userConnectionId}\"" +
-                    $" --org-name \"{orgName}\"" +
-                    $" --org-id \"{orgId}\"" +
-                    $" --pipe-name {pipeName}").Id;
-            }
+
+            await hubConnection.SendAsync("DisplayMessage",
+                "Chat service failed to start on target device.",
+                "Failed to start chat service.",
+                "bg-danger",
+                userConnectionId);
         }
         catch (Exception ex)
         {
@@ -108,39 +88,17 @@ public class AppLauncherWin : IAppLauncher
                 "Starting remote control",
                 "bg-success",
                 userConnectionId);
-            if (WindowsIdentity.GetCurrent().IsSystem)
+
+            var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
+            args.AddRange(["--session-id", sessionId, "--access-key", accessKey]);
+
+            if (StartDesktopApp(args, targetSessionId) <= 0)
             {
-                var result = Win32Interop.CreateInteractiveSystemProcess(
-                    _rcBinaryPath +
-                        $" --mode Unattended" +
-                        $" --host {_connectionInfo.Host}" +
-                        $" --requester-name \"{requesterName}\"" +
-                        $" --org-name \"{orgName}\"" +
-                        $" --org-id \"{orgId}\"" +
-                        $" --session-id \"{sessionId}\"" +
-                        $" --access-key \"{accessKey}\"",
-                    targetSessionId: targetSessionId,
-                    hiddenWindow: false,
-                    out _);
-                if (!result)
-                {
-                    await hubConnection.SendAsync("DisplayMessage",
-                        "Remote control failed to start on target device.",
-                        "Failed to start remote control.",
-                        "bg-danger",
-                        userConnectionId);
-                }
-            }
-            else
-            {
-                Process.Start(_rcBinaryPath,
-                        $" --mode Unattended" +
-                        $" --host {_connectionInfo.Host}" +
-                        $" --requester-name \"{requesterName}\"" +
-                        $" --org-name \"{orgName}\"" +
-                        $" --org-id \"{orgId}\"" +
-                        $" --session-id \"{sessionId}\"" +
-                        $" --access-key \"{accessKey}\"");
+                await hubConnection.SendAsync("DisplayMessage",
+                    "Remote control failed to start on target device.",
+                    "Failed to start remote control.",
+                    "bg-danger",
+                    userConnectionId);
             }
         }
         catch (Exception ex)
@@ -159,49 +117,29 @@ public class AppLauncherWin : IAppLauncher
         {
             // Start Desktop app.                 
             _logger.LogInformation("Restarting screen caster.");
+
+            var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
+            args.AddRange([
+                "--relaunch", "true",
+                "--session-id", sessionId,
+                "--access-key", accessKey,
+                "--viewers", string.Join(",", viewerIds)]);
+
             if (WindowsIdentity.GetCurrent().IsSystem)
             {
                 // Give a little time for session changing, etc.
                 await Task.Delay(1000);
-
-                var result = Win32Interop.CreateInteractiveSystemProcess(_rcBinaryPath +
-                        $" --mode Unattended" +
-                        $" --relaunch true" +
-                        $" --host {_connectionInfo.Host}" +
-                        $" --requester-name \"{requesterName}\"" +
-                        $" --org-name \"{orgName}\"" +
-                        $" --org-id \"{orgId}\"" +
-                        $" --session-id \"{sessionId}\"" +
-                        $" --access-key \"{accessKey}\"" +
-                        $" --viewers {string.Join(",", viewerIds)}",
-
-                    targetSessionId: targetSessionID,
-                    hiddenWindow: false,
-                    out _);
-
-                if (!result)
-                {
-                    _logger.LogWarning("Failed to relaunch screen caster.");
-                    await hubConnection.SendAsync("SendConnectionFailedToViewers", viewerIds);
-                    await hubConnection.SendAsync("DisplayMessage",
-                        "Remote control failed to start on target device.",
-                        "Failed to start remote control.",
-                        "bg-danger",
-                        userConnectionId);
-                }
             }
-            else
+
+            if (StartDesktopApp(args, targetSessionID) <= 0)
             {
-                Process.Start(_rcBinaryPath,
-                    $" --mode Unattended" +
-                    $" --relaunch true" +
-                    $" --host {_connectionInfo.Host}" +
-                    $" --requester-name \"{requesterName}\"" +
-                    $" --org-name \"{orgName}\"" +
-                    $" --org-id \"{orgId}\"" +
-                    $" --session-id \"{sessionId}\"" +
-                    $" --access-key \"{accessKey}\"" +
-                    $" --viewers {string.Join(",", viewerIds)}");
+                _logger.LogWarning("Failed to relaunch screen caster.");
+                await hubConnection.SendAsync("SendConnectionFailedToViewers", viewerIds);
+                await hubConnection.SendAsync("DisplayMessage",
+                    "Remote control failed to start on target device.",
+                    "Failed to start remote control.",
+                    "bg-danger",
+                    userConnectionId);
             }
         }
         catch (Exception ex)
@@ -210,5 +148,37 @@ public class AppLauncherWin : IAppLauncher
             _logger.LogError(ex, "Error while restarting screen caster.");
             throw;
         }
+    }
+
+    private List<string> GetDesktopArguments(string mode, string requesterName, string orgName, string orgId) =>
+    [
+        "--mode", mode,
+        "--host", _connectionInfo.Host ?? string.Empty,
+        "--requester-name", requesterName ?? string.Empty,
+        "--org-name", orgName ?? string.Empty,
+        "--org-id", orgId ?? string.Empty,
+    ];
+
+    // Les valeurs (nom du technicien, de l'organisation...) sont passées argument par argument :
+    // un guillemet dans l'une d'elles ne peut pas ajouter d'option à la ligne de commande.
+    // Renvoie l'ID du processus, ou -1 si le lancement a échoué.
+    private int StartDesktopApp(List<string> arguments, int targetSessionId)
+    {
+        if (WindowsIdentity.GetCurrent().IsSystem)
+        {
+            var started = Win32Interop.CreateInteractiveSystemProcess(
+                WindowsCommandLine.Build(_rcBinaryPath, arguments),
+                targetSessionId: targetSessionId,
+                hiddenWindow: false,
+                out var procInfo);
+            return started ? procInfo.dwProcessId : -1;
+        }
+
+        var psi = new ProcessStartInfo(_rcBinaryPath);
+        foreach (var argument in arguments)
+        {
+            psi.ArgumentList.Add(argument);
+        }
+        return Process.Start(psi)?.Id ?? -1;
     }
 }

@@ -7,6 +7,7 @@ using Remotely.Shared.Primitives;
 using Remotely.Shared.Services;
 using Remotely.Shared.Utilities;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -54,14 +55,8 @@ public class AppLauncherLinux : IAppLauncher
 
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
-            var args =
-                _rcBinaryPath +
-                $" --mode Chat" +
-                $" --host \"{_connectionInfo.Host}\"" +
-                $" --pipe-name {pipeName}" +
-                $" --requester-name \"{requesterName}\"" +
-                $" --org-name \"{orgName}\"" +
-                $" --org-id \"{orgId}\"";
+            var args = GetDesktopArguments("Chat", requesterName, orgName, orgId);
+            args.AddRange(["--pipe-name", pipeName]);
             return StartLinuxDesktopApp(args);
         }
         catch (Exception ex)
@@ -89,15 +84,8 @@ public class AppLauncherLinux : IAppLauncher
 
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", "Starting remote control.", "Starting remote control.", "bg-success", userConnectionId);
-            var args =
-                _rcBinaryPath +
-                $" --mode Unattended" +
-                $" --host {_connectionInfo.Host}" +
-                $" --requester-name \"{requesterName}\"" +
-                $" --org-name \"{orgName}\"" +
-                $" --org-id \"{orgId}\"" +
-                $" --session-id \"{sessionId}\"" +
-                $" --access-key \"{accessKey}\"";
+            var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
+            args.AddRange(["--session-id", sessionId, "--access-key", accessKey]);
             StartLinuxDesktopApp(args);
         }
         catch (Exception ex)
@@ -111,15 +99,8 @@ public class AppLauncherLinux : IAppLauncher
     {
         try
         {
-            var args =
-                _rcBinaryPath +
-                $" --mode Unattended" +
-                $" --host {_connectionInfo.Host}" +
-                $" --requester-name \"{requesterName}\"" +
-                $" --org-name \"{orgName}\"" +
-                $" --org-id \"{orgId}\"" +
-                $" --session-id \"{sessionId}\"" +
-                $" --access-key \"{accessKey}\"";
+            var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
+            args.AddRange(["--session-id", sessionId, "--access-key", accessKey]);
             StartLinuxDesktopApp(args);
         }
         catch (Exception ex)
@@ -130,7 +111,19 @@ public class AppLauncherLinux : IAppLauncher
         }
     }
 
-    private int StartLinuxDesktopApp(string args)
+    private List<string> GetDesktopArguments(string mode, string requesterName, string orgName, string orgId) =>
+    [
+        "--mode", mode,
+        "--host", _connectionInfo.Host ?? string.Empty,
+        "--requester-name", requesterName ?? string.Empty,
+        "--org-name", orgName ?? string.Empty,
+        "--org-id", orgId ?? string.Empty,
+    ];
+
+    // Les valeurs (nom du technicien, de l'organisation...) sont passées argument par argument
+    // (ArgumentList) : un guillemet ou une espace dans l'une d'elles ne peut pas ajouter d'option
+    // à sudo ni au client de bureau.
+    private int StartLinuxDesktopApp(List<string> desktopArgs)
     {
         var xdisplay = ":0";
         var xauthority = string.Empty;
@@ -178,7 +171,6 @@ public class AppLauncherLinux : IAppLauncher
                     username = whoSplit[0];
                     xdisplay = whoSplit.Last().TrimStart('(').TrimEnd(')');
                     xauthority = $"/home/{username}/.Xauthority";
-                    args = $"-u {username} {args}";
 
                 }
             }
@@ -188,20 +180,28 @@ public class AppLauncherLinux : IAppLauncher
             }
         }
 
-        var psi = new ProcessStartInfo()
+        var psi = new ProcessStartInfo("sudo");
+        if (!string.IsNullOrWhiteSpace(username))
         {
-            FileName = "sudo",
-            Arguments = args
-        };
+            psi.ArgumentList.Add("-u");
+            psi.ArgumentList.Add(username);
+        }
+        // Fin des options de sudo : la suite est la commande et ses arguments.
+        psi.ArgumentList.Add("--");
+        psi.ArgumentList.Add(_rcBinaryPath);
+        foreach (var argument in desktopArgs)
+        {
+            psi.ArgumentList.Add(argument);
+        }
 
         psi.Environment.Add("DISPLAY", xdisplay);
         psi.Environment.Add("XAUTHORITY", xauthority);
+        // Pas d'arguments dans le journal : ils contiennent la clé d'accès de la session.
         _logger.LogInformation(
-            "Attempting to launch screen caster with username {username}, xauthority {xauthority}, display {display}, and args {args}.",
+            "Attempting to launch screen caster with username {username}, xauthority {xauthority}, and display {display}.",
             username,
             xauthority,
-            xdisplay,
-            args);
+            xdisplay);
         return Process.Start(psi)?.Id ?? throw new InvalidOperationException("Failed to launch desktop app.");
     }
 
