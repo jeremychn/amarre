@@ -513,7 +513,10 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
 
             _logger.LogInformation("File upload started by {requesterID}.", requesterId);
 
-            var sharedFilePath = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "RemotelySharedFiles")).FullName;
+            // Dossier sous le répertoire d'installation, réservé au compte de l'agent : le dossier
+            // temporaire laissait un utilisateur local le créer d'avance (ou un lien) et lire ou
+            // remplacer les fichiers envoyés.
+            var sharedFilePath = RestrictedDirectory.GetOrCreate(Path.Combine(AppContext.BaseDirectory, "SharedFiles"));
 
             foreach (var fileID in fileIds)
             {
@@ -522,11 +525,11 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
                 client.DefaultRequestHeaders.Add(AppConstants.ExpiringTokenHeaderName, expiringToken);
                 using var response = await client.GetAsync(url);
 
-                var filename = response.Content.Headers.ContentDisposition?.FileName ?? Path.GetRandomFileName();
-                var invalidChars = Path.GetInvalidFileNameChars().ToHashSet();
-                var legalChars = filename.ToCharArray().Where(x => !invalidChars.Contains(x));
+                response.EnsureSuccessStatusCode();
 
-                filename = new string(legalChars.ToArray());
+                var disposition = response.Content.Headers.ContentDisposition;
+                var filename = PathSanitizer.GetSafeFileName(
+                    (disposition?.FileNameStar ?? disposition?.FileName)?.Trim('"') ?? Path.GetRandomFileName());
 
                 using var rs = await response.Content.ReadAsStreamAsync();
                 using var fs = new FileStream(Path.Combine(sharedFilePath, filename), FileMode.Create);
