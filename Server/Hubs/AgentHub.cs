@@ -47,6 +47,10 @@ public class AgentHub : Hub<IAgentHubClient>
 
     private const string AgentChallengeKey = "AgentChallenge";
 
+    // Poste banni, refusé avant d'être enregistré, mais qui a prouvé son jeton : ProveServer lui répond
+    // pour qu'il accepte l'ordre de désinstallation (il refuse celui d'un serveur non vérifié).
+    private const string BannedDeviceKey = "BannedDevice";
+
     // TODO: Replace with new invoke capability in .NET 7 in ScriptingController.
     public static IMemoryCache ApiScriptResults { get; } = new MemoryCache(new MemoryCacheOptions());
 
@@ -153,7 +157,7 @@ public class AgentHub : Hub<IAgentHubClient>
     {
         try
         {
-            if (await CheckForDeviceBan(device.ID, device.DeviceName))
+            if (await CheckForDeviceBan(device, device.ID, device.DeviceName))
             {
                 return false;
             }
@@ -165,7 +169,7 @@ public class AgentHub : Hub<IAgentHubClient>
             }
             device.PublicIP = $"{ip}";
 
-            if (await CheckForDeviceBan(device.PublicIP))
+            if (await CheckForDeviceBan(device, device.PublicIP))
             {
                 return false;
             }
@@ -231,6 +235,19 @@ public class AgentHub : Hub<IAgentHubClient>
         return false;
     }
 
+    // Seulement si le poste a prouvé son jeton sur cette connexion : sinon ProveServer servirait d'oracle
+    // à quiconque annonce l'ID d'un poste banni.
+    private async Task AllowBannedDeviceProof(DeviceClientDto device)
+    {
+        var stored = await _dataService.GetDevice(device.ID);
+        if (stored.IsSuccess &&
+            !string.IsNullOrEmpty(stored.Value.ServerVerificationToken) &&
+            await CheckAgentToken(device))
+        {
+            Context.Items[BannedDeviceKey] = stored.Value;
+        }
+    }
+
     // UUID matériel des deux côtés : il fait foi (même nom possible). Sinon : le nom.
     // ponytail: deux clones au même nom et sans UUID lisible ne sont pas distingués.
     private static bool IsOtherMachine(Device connected, DeviceClientDto incoming)
@@ -284,21 +301,24 @@ public class AgentHub : Hub<IAgentHubClient>
     // L'agent vérifie le serveur sans lui avoir jamais envoyé son jeton.
     public string ProveServer(string agentChallenge)
     {
-        if (Device is null || string.IsNullOrEmpty(agentChallenge))
+        var device = Device ??
+            (Context.Items.TryGetValue(BannedDeviceKey, out var banned) ? banned as Device : null);
+
+        if (device is null || string.IsNullOrEmpty(agentChallenge))
         {
             return string.Empty;
         }
 
-        if (string.IsNullOrEmpty(Device.ServerVerificationToken))
+        if (string.IsNullOrEmpty(device.ServerVerificationToken))
         {
             _logger.LogWarning(
                 "Poste {DeviceId} ({DeviceName}) inconnu du serveur mais déjà enrôlé : il refusera ce serveur. " +
                 "Désinstaller puis réinstaller l'agent, ou effacer ServerVerificationToken dans son ConnectionInfo.json et redémarrer le service.",
-                Device.ID, Device.DeviceName);
+                device.ID, device.DeviceName);
             return string.Empty;
         }
 
-        return AgentTokenProof.FromServer(Device.ServerVerificationToken, agentChallenge);
+        return AgentTokenProof.FromServer(device.ServerVerificationToken, agentChallenge);
     }
 
     public async Task DeviceHeartbeat(DeviceClientDto device)
@@ -549,7 +569,11 @@ public class AgentHub : Hub<IAgentHubClient>
             circuit.User.OrganizationID == Device.OrganizationID;
     }
 
-    private async Task<bool> CheckForDeviceBan(params string[] deviceIdNameOrIPs)
+    private Task<bool> CheckForDeviceBan(params string[] deviceIdNameOrIPs) =>
+        CheckForDeviceBan(null, deviceIdNameOrIPs);
+
+    // connectingDevice : poste pas encore enregistré sur cette connexion (DeviceCameOnline).
+    private async Task<bool> CheckForDeviceBan(DeviceClientDto? connectingDevice, params string[] deviceIdNameOrIPs)
     {
         var settings = await _dataService.GetSettings();
         foreach (var device in deviceIdNameOrIPs)
@@ -564,6 +588,10 @@ public class AgentHub : Hub<IAgentHubClient>
             {
                 _logger.LogWarning("Device ID/name/IP ({device}) is banned.  Sending uninstall command.", device);
 
+                if (connectingDevice is not null)
+                {
+                    await AllowBannedDeviceProof(connectingDevice);
+                }
                 await Clients.Caller.UninstallAgent();
                 return true;
             }

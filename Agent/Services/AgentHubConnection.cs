@@ -545,8 +545,43 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
 
     public Task TriggerHeartbeat() => SendHeartbeat();
 
-    // Pas de contrôle de vérification : le serveur l'envoie aux postes bannis avant de refuser leur connexion.
+    // Seulement d'un serveur vérifié : un faux serveur ne doit pas pouvoir désinstaller l'agent.
+    // Poste banni : le serveur l'envoie avant de refuser la connexion, donc avant la vérification ;
+    // l'agent lui demande alors la preuve de son jeton (ProveServer), hors du gestionnaire de message
+    // (attendre une réponse du serveur dans un gestionnaire bloquerait la réception).
     public Task UninstallAgent()
+    {
+        if (_isServerVerified)
+        {
+            Uninstall();
+            return Task.CompletedTask;
+        }
+
+        var hubConnection = _hubConnection;
+        var connectionInfo = _connectionInfo;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (hubConnection is not null &&
+                    connectionInfo is not null &&
+                    await ServerProvesToken(hubConnection, connectionInfo))
+                {
+                    Uninstall();
+                    return;
+                }
+
+                _logger.LogWarning("Désinstallation demandée par un serveur non vérifié : ignorée.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error while verifying the server before uninstalling.");
+            }
+        });
+        return Task.CompletedTask;
+    }
+
+    private void Uninstall()
     {
         try
         {
@@ -556,7 +591,6 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         {
             _logger.LogError(ex, "Error while uninstalling agent.");
         }
-        return Task.CompletedTask;
     }
 
     public async Task WakeDevice(string macAddress)
@@ -741,10 +775,7 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         }
         else
         {
-            var agentChallenge = AgentTokenProof.NewChallenge();
-            var serverProof = await _hubConnection.InvokeAsync<string>("ProveServer", agentChallenge);
-
-            if (AgentTokenProof.AreEqual(AgentTokenProof.FromServer(_connectionInfo.ServerVerificationToken, agentChallenge), serverProof))
+            if (await ServerProvesToken(_hubConnection, _connectionInfo))
             {
                 _isServerVerified = true;
             }
@@ -758,6 +789,20 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
         }
 
         return true;
+    }
+
+    // Le serveur signe un défi tiré par l'agent avec le jeton du poste. Sans jeton (jamais enrôlé) : non.
+    private static async Task<bool> ServerProvesToken(HubConnection hubConnection, ConnectionInfo connectionInfo)
+    {
+        var token = connectionInfo.ServerVerificationToken;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        var agentChallenge = AgentTokenProof.NewChallenge();
+        var serverProof = await hubConnection.InvokeAsync<string>("ProveServer", agentChallenge);
+        return AgentTokenProof.AreEqual(AgentTokenProof.FromServer(token, agentChallenge), serverProof);
     }
 
     // Le jeton ne quitte jamais le poste : l'agent signe le défi de cette connexion (rien à envoyer avant l'enrôlement).

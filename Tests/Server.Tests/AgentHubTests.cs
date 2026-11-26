@@ -351,6 +351,52 @@ public class AgentHubTests
         Assert.AreEqual("nouveau-jeton", (await _dataService.GetDevice(device.ID)).Value?.ServerVerificationToken);
     }
 
+    // L11 : l'agent n'accepte la désinstallation que d'un serveur vérifié. Poste banni qui a prouvé
+    // son jeton : le serveur lui prouve le sien, l'agent peut obéir.
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task DeviceCameOnline_Banni_AvecPreuve_ServeurSeProuve()
+    {
+        var device = _testData.Org1Device1;
+        device.Drives = [];
+        await _dataService.AddOrUpdateDevice(device.ToDto());
+        _dataService.SetServerVerificationToken(device.ID, "jeton-du-poste");
+        var settings = await _dataService.GetSettings();
+        settings.BannedDevices = [device.ID];
+        await _dataService.SaveSettings(settings);
+
+        var hub = CreateHub(new AgentHubSessionCache(), out var caller);
+        var dto = device.ToDto();
+        dto.ServerVerificationToken = AgentTokenProof.FromAgent("jeton-du-poste", hub.GetAgentChallenge());
+
+        Assert.IsFalse(await hub.DeviceCameOnline(dto));
+        caller.Verify(x => x.UninstallAgent(), Times.Once);
+        Assert.AreEqual(AgentTokenProof.FromServer("jeton-du-poste", "defi-agent"), hub.ProveServer("defi-agent"));
+    }
+
+    // Sans preuve du poste, pas de réponse : ProveServer ne sert pas d'oracle à qui annonce l'ID d'un poste banni.
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task DeviceCameOnline_Banni_SansPreuve_ServeurNeSeProuvePas()
+    {
+        var device = _testData.Org1Device1;
+        device.Drives = [];
+        await _dataService.AddOrUpdateDevice(device.ToDto());
+        _dataService.SetServerVerificationToken(device.ID, "jeton-du-poste");
+        var settings = await _dataService.GetSettings();
+        settings.BannedDevices = [device.ID];
+        await _dataService.SaveSettings(settings);
+
+        var hub = CreateHub(new AgentHubSessionCache(), out var caller);
+        hub.GetAgentChallenge();
+        var dto = device.ToDto();
+        dto.ServerVerificationToken = "preuve-fausse";
+
+        Assert.IsFalse(await hub.DeviceCameOnline(dto));
+        caller.Verify(x => x.UninstallAgent(), Times.Once);
+        Assert.AreEqual(string.Empty, hub.ProveServer("defi-agent"));
+    }
+
     private async Task SetAgentVersion(string deviceId, string agentVersion)
     {
         var dto = (await _dataService.GetDevice(deviceId)).Value!.ToDto();
