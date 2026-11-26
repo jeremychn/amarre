@@ -3,6 +3,7 @@ using Remotely.Desktop.Shared.Enums;
 using Remotely.Desktop.Shared.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Primitives;
 using System.CommandLine;
 using System.Runtime.Versioning;
@@ -95,17 +96,30 @@ public static class IServiceProviderExtensions
                     host = serverUri;
                 }
 
+                // Clé d'accès hors de la ligne de commande (voir DesktopAccessKey) ; l'option reste lue
+                // pour un agent plus ancien que ce client.
+                var accessKey = DesktopAccessKey.Resolve(
+                    parseResult.GetValue<string>("--access-key"),
+                    () => Environment.GetEnvironmentVariable(DesktopAccessKey.EnvironmentVariable),
+                    Console.In.ReadLine);
+                var elevate = parseResult.GetValue<bool>("--elevate");
+                if (!elevate)
+                {
+                    // Le relancement élevé hérite de l'environnement ; sinon, rien ne doit en hériter.
+                    Environment.SetEnvironmentVariable(DesktopAccessKey.EnvironmentVariable, null);
+                }
+
                 await services.UseRemoteControlClient(
                     host ?? string.Empty,
                     parseResult.GetValue<AppMode>("--mode"),
                     parseResult.GetValue<string>("--pipe-name") ?? string.Empty,
                     parseResult.GetValue<string>("--session-id") ?? string.Empty,
-                    parseResult.GetValue<string>("--access-key") ?? string.Empty,
+                    accessKey,
                     parseResult.GetValue<string>("--requester-name") ?? string.Empty,
                     parseResult.GetValue<string>("--org-name") ?? string.Empty,
                     parseResult.GetValue<bool>("--relaunch"),
                     parseResult.GetValue<string>("--viewers") ?? string.Empty,
-                    parseResult.GetValue<bool>("--elevate"));
+                    elevate);
 
                 // Exit code 0 even on failure, as with the old CommandHandler (which ignored the Result).
                 return 0;

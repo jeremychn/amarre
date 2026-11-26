@@ -102,11 +102,13 @@ public class Win32Interop
         return User32.OpenInputDesktop(0, true, ACCESS_MASK.GENERIC_ALL);
     }
 
+    /// <param name="environment">Variables ajoutées à l'environnement hérité, pour ce seul processus.</param>
     public static bool CreateInteractiveSystemProcess(
         string commandLine,
         int targetSessionId,
         bool hiddenWindow,
-        out PROCESS_INFORMATION procInfo)
+        out PROCESS_INFORMATION procInfo,
+        IReadOnlyDictionary<string, string>? environment = null)
     {
         uint winlogonPid = 0;
         var hUserTokenDup = nint.Zero;
@@ -170,19 +172,32 @@ public class Win32Interop
             dwCreationFlags = NORMAL_PRIORITY_CLASS | CREATE_UNICODE_ENVIRONMENT | CREATE_NEW_CONSOLE;
         }
 
+        var environmentBlock = environment is { Count: > 0 } ? CreateEnvironmentBlock(environment) : nint.Zero;
+
         // Create a new process in the current user's logon session.
-        var result = CreateProcessAsUser(
-            hUserTokenDup,
-            null,
-            commandLine,
-            ref sa,
-            ref sa,
-            false,
-            dwCreationFlags,
-            nint.Zero,
-            null,
-            ref si,
-            out procInfo);
+        bool result;
+        try
+        {
+            result = CreateProcessAsUser(
+                hUserTokenDup,
+                null,
+                commandLine,
+                ref sa,
+                ref sa,
+                false,
+                dwCreationFlags,
+                environmentBlock,
+                null,
+                ref si,
+                out procInfo);
+        }
+        finally
+        {
+            if (environmentBlock != nint.Zero)
+            {
+                Marshal.FreeHGlobal(environmentBlock);
+            }
+        }
 
         // Invalidate the handles.
         Kernel32.CloseHandle(hProcess);
@@ -190,6 +205,29 @@ public class Win32Interop
         Kernel32.CloseHandle(hUserTokenDup);
 
         return result;
+    }
+
+    // Bloc d'environnement Unicode (CREATE_UNICODE_ENVIRONMENT) : celui du processus courant,
+    // complété par les variables données, trié sans tenir compte de la casse, terminé par deux zéros.
+    private static nint CreateEnvironmentBlock(IReadOnlyDictionary<string, string> environment)
+    {
+        var variables = new SortedDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (System.Collections.DictionaryEntry entry in Environment.GetEnvironmentVariables())
+        {
+            variables[(string)entry.Key] = entry.Value as string ?? string.Empty;
+        }
+        foreach (var (name, value) in environment)
+        {
+            variables[name] = value;
+        }
+
+        var block = new StringBuilder();
+        foreach (var (name, value) in variables)
+        {
+            block.Append(name).Append('=').Append(value).Append('\0');
+        }
+        block.Append('\0');
+        return Marshal.StringToHGlobalUni(block.ToString());
     }
 
     public static string ResolveDesktopName(uint targetSessionId)

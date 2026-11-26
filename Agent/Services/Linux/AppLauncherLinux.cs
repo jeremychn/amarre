@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Remotely.Agent.Interfaces;
 using Remotely.Shared.Extensions;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Models;
 using Remotely.Shared.Primitives;
 using Remotely.Shared.Services;
@@ -85,8 +86,8 @@ public class AppLauncherLinux : IAppLauncher
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", "Starting remote control.", "Starting remote control.", "bg-success", userConnectionId);
             var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
-            args.AddRange(["--session-id", sessionId, "--access-key", accessKey]);
-            StartLinuxDesktopApp(args);
+            args.AddRange(["--session-id", sessionId, "--access-key", DesktopAccessKey.FromStandardInput]);
+            StartLinuxDesktopApp(args, accessKey);
         }
         catch (Exception ex)
         {
@@ -100,8 +101,8 @@ public class AppLauncherLinux : IAppLauncher
         try
         {
             var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
-            args.AddRange(["--session-id", sessionId, "--access-key", accessKey]);
-            StartLinuxDesktopApp(args);
+            args.AddRange(["--session-id", sessionId, "--access-key", DesktopAccessKey.FromStandardInput]);
+            StartLinuxDesktopApp(args, accessKey);
         }
         catch (Exception ex)
         {
@@ -123,7 +124,10 @@ public class AppLauncherLinux : IAppLauncher
     // Les valeurs (nom du technicien, de l'organisation...) sont passées argument par argument
     // (ArgumentList) : un guillemet ou une espace dans l'une d'elles ne peut pas ajouter d'option
     // à sudo ni au client de bureau.
-    private int StartLinuxDesktopApp(List<string> desktopArgs)
+    // La clé d'accès part sur l'entrée standard (« --access-key - »), pas dans les arguments :
+    // /proc/<pid>/cmdline est lisible par tout utilisateur du poste, et sudo ne transmet pas
+    // les variables d'environnement.
+    private int StartLinuxDesktopApp(List<string> desktopArgs, string? accessKey = null)
     {
         var xdisplay = ":0";
         var xauthority = string.Empty;
@@ -202,7 +206,14 @@ public class AppLauncherLinux : IAppLauncher
             username,
             xauthority,
             xdisplay);
-        return Process.Start(psi)?.Id ?? throw new InvalidOperationException("Failed to launch desktop app.");
+        psi.RedirectStandardInput = accessKey is not null;
+        var process = Process.Start(psi) ?? throw new InvalidOperationException("Failed to launch desktop app.");
+        if (accessKey is not null)
+        {
+            process.StandardInput.WriteLine(accessKey);
+            process.StandardInput.Close();
+        }
+        return process.Id;
     }
 
     private Result<XAuthInfo> TryGetXAuth(string xServerProcess)

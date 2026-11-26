@@ -71,7 +71,8 @@ public static class CommandProvider
 
         rootCommand.Options.Add(new Option<string>("--access-key", "-a")
         {
-            Description = "In Unattended mode, secures access to the connection using the provided key."
+            Description = "In Unattended mode, secures access to the connection using the provided key. " +
+                "Use - to read it from standard input. If omitted, the AMARRE_ACCESS_KEY environment variable is used."
         });
 
         rootCommand.Options.Add(new Option<string>("--requester-name", "-r")

@@ -90,9 +90,9 @@ public class AppLauncherWin : IAppLauncher
                 userConnectionId);
 
             var args = GetDesktopArguments("Unattended", requesterName, orgName, orgId);
-            args.AddRange(["--session-id", sessionId, "--access-key", accessKey]);
+            args.AddRange(["--session-id", sessionId]);
 
-            if (StartDesktopApp(args, targetSessionId) <= 0)
+            if (StartDesktopApp(args, targetSessionId, accessKey) <= 0)
             {
                 await hubConnection.SendAsync("DisplayMessage",
                     "Remote control failed to start on target device.",
@@ -122,7 +122,6 @@ public class AppLauncherWin : IAppLauncher
             args.AddRange([
                 "--relaunch", "true",
                 "--session-id", sessionId,
-                "--access-key", accessKey,
                 "--viewers", string.Join(",", viewerIds)]);
 
             if (WindowsIdentity.GetCurrent().IsSystem)
@@ -131,7 +130,7 @@ public class AppLauncherWin : IAppLauncher
                 await Task.Delay(1000);
             }
 
-            if (StartDesktopApp(args, targetSessionID) <= 0)
+            if (StartDesktopApp(args, targetSessionID, accessKey) <= 0)
             {
                 _logger.LogWarning("Failed to relaunch screen caster.");
                 await hubConnection.SendAsync("SendConnectionFailedToViewers", viewerIds);
@@ -161,16 +160,23 @@ public class AppLauncherWin : IAppLauncher
 
     // Les valeurs (nom du technicien, de l'organisation...) sont passées argument par argument :
     // un guillemet dans l'une d'elles ne peut pas ajouter d'option à la ligne de commande.
+    // La clé d'accès passe par une variable d'environnement du seul processus enfant, pas par la
+    // ligne de commande (liste des processus, journaux d'audit) : voir DesktopAccessKey.
     // Renvoie l'ID du processus, ou -1 si le lancement a échoué.
-    private int StartDesktopApp(List<string> arguments, int targetSessionId)
+    private int StartDesktopApp(List<string> arguments, int targetSessionId, string? accessKey = null)
     {
+        var environment = string.IsNullOrEmpty(accessKey)
+            ? null
+            : new Dictionary<string, string> { [DesktopAccessKey.EnvironmentVariable] = accessKey };
+
         if (WindowsIdentity.GetCurrent().IsSystem)
         {
             var started = Win32Interop.CreateInteractiveSystemProcess(
                 WindowsCommandLine.Build(_rcBinaryPath, arguments),
                 targetSessionId: targetSessionId,
                 hiddenWindow: false,
-                out var procInfo);
+                out var procInfo,
+                environment);
             return started ? procInfo.dwProcessId : -1;
         }
 
@@ -178,6 +184,10 @@ public class AppLauncherWin : IAppLauncher
         foreach (var argument in arguments)
         {
             psi.ArgumentList.Add(argument);
+        }
+        if (!string.IsNullOrEmpty(accessKey))
+        {
+            psi.Environment[DesktopAccessKey.EnvironmentVariable] = accessKey;
         }
         return Process.Start(psi)?.Id ?? -1;
     }
