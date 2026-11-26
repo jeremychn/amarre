@@ -65,7 +65,7 @@
 
     <TextBlock Grid.Row="3" Margin="0,10,0,0" TextWrapping="Wrap"
                IsVisible="{Binding !CanUploadFiles}">
-      Envoi de fichiers indisponible pendant une prise en main sans surveillance : le technicien peut les récupérer depuis le poste.
+      Envoi de fichiers indisponible pendant une prise en main sans surveillance. Le technicien peut récupérer les fichiers depuis le terminal.
     </TextBlock>
     <Button Grid.Row="3" Margin="0,10,0,0" 
 			Height="60" 

@@ -419,7 +419,7 @@ Ordre : serveur d'abord, agents ensuite (le serveur accepte les agents plus anci
 | Viewer : « Trop d'essais : réessayez dans quelques minutes » | 10 ID de session ou clés faux en un quart d'heure pour ce compte (depuis v1.26) : attendre |
 | Mot de passe oublié : plus d'e-mail après quelques demandes | Au plus 3 e-mails de réinitialisation par compte et par quart d'heure (depuis v1.26) |
 | Chat qui ne s'ouvre pas, journal du client « A pipe name must be specified » | Agent et client de bureau de versions différentes (copie à la main d'un seul des deux) : réinstaller l'agent, ils sont livrés ensemble |
-| Prise en main sans surveillance : « Envoi de fichiers indisponible » dans la fenêtre de transfert | Voulu depuis v1.26 : le client tourne en SYSTEM, il n'ouvre plus de sélecteur de fichiers à l'utilisateur. Le technicien récupère les fichiers depuis le poste (terminal, script) |
+| Prise en main sans surveillance : « Envoi de fichiers indisponible » dans la fenêtre de transfert | Voulu depuis v1.26 : le client tourne en SYSTEM, il n'ouvre plus de sélecteur de fichiers à l'utilisateur. Amarre n'a pas d'explorateur de fichiers distant : le technicien récupère les fichiers par le terminal ou un script, ou passe par une prise en main assistée (client lancé par l'utilisateur, envoi possible) |
 | Fichiers `Server/wwwroot/lib/*.js` modifiés après un build | Régénérés par libman au build : `git checkout -- Server/wwwroot/lib` |
 
 **Logs**
