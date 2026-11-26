@@ -77,6 +77,8 @@ public partial class DeviceCard : AuthComponentBase
     [Inject]
     private IUpgradeService UpgradeService { get; init; } = null!;
 
+    private TimeSpan? Uptime => DeviceUptime.Get(Device, Time.Now);
+
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();

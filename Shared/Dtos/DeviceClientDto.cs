@@ -39,6 +39,10 @@ public class DeviceClientDto
     [DataMember]
     public bool IsOnline { get; set; }
 
+    /// <summary>Dernier démarrage du poste (vide pour les agents d'avant la 1.27).</summary>
+    [DataMember]
+    public DateTimeOffset? LastBootTime { get; set; }
+
     [DataMember]
     public string[] MacAddresses { get; set; } = Array.Empty<string>();
 

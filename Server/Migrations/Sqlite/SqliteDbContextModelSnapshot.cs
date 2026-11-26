@@ -403,6 +403,9 @@ namespace Remotely.Server.Migrations.Sqlite
                     b.Property<bool>("IsOnline")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("LastBootTime")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("LastOnline")
                         .IsRequired()
                         .HasColumnType("TEXT");

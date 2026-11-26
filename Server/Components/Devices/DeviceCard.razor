@@ -178,6 +178,13 @@
                 @(Device.TotalMemory) Go
             </div>
 
+            <div class="field-label">
+                <label>Allumé depuis</label>
+            </div>
+            <div class="@DeviceUptime.CssClass(Uptime)" title="Depuis le dernier redémarrage (arrêter avec le démarrage rapide de Windows ne compte pas)">
+                @DeviceUptime.Format(Uptime)
+            </div>
+
             @if (IsExpanded)
             {
                 <div class="field-label">

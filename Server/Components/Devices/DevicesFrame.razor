@@ -101,6 +101,10 @@
         <button class="counter counter-disk @CounterClass(QuickFilter.DiskFull)" @onclick="() => ToggleQuickFilter(QuickFilter.DiskFull)" @onclick:stopPropagation>
             <span class="dot"></span> Disque ≥ 75 % <strong>@_allDevices.Count(IsDiskFull)</strong>
         </button>
+        <button class="counter counter-uptime @CounterClass(QuickFilter.LongUptime)" @onclick="() => ToggleQuickFilter(QuickFilter.LongUptime)" @onclick:stopPropagation
+                title="Postes en ligne qui n'ont pas redémarré depuis 7 jours ou plus">
+            <span class="dot"></span> Allumé ≥ 7 j <strong>@_allDevices.Count(IsLongUptime)</strong>
+        </button>
     </div>
 
     <div id="deviceListDiv">

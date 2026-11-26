@@ -47,6 +47,11 @@ public class Device
     public bool Is64Bit { get; set; }
     public bool IsOnline { get; set; }
 
+    /// <summary>Dernier démarrage du poste, calculé par l'agent (1.27+) : vide pour les agents plus anciens.</summary>
+    [Sortable]
+    [Display(Name = "Dernier démarrage")]
+    public DateTimeOffset? LastBootTime { get; set; }
+
     [Sortable]
     [Display(Name = "Dernière connexion")]
     public DateTimeOffset LastOnline { get; set; }

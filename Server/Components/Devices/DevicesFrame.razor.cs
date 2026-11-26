@@ -39,7 +39,7 @@ public partial class DevicesFrame : AuthComponentBase
     private QuickFilter _quickFilter;
     private string _bulkGroupId = string.Empty;
 
-    private enum QuickFilter { None, Online, Outdated, Offline, DiskFull }
+    private enum QuickFilter { None, Online, Outdated, Offline, DiskFull, LongUptime }
 
     [Inject]
     private ISelectedCardsStore CardStore { get; init; } = null!;
@@ -176,6 +176,7 @@ public partial class DevicesFrame : AuthComponentBase
                 QuickFilter.Outdated => IsOutdated(device),
                 QuickFilter.Offline => !device.IsOnline,
                 QuickFilter.DiskFull => IsDiskFull(device),
+                QuickFilter.LongUptime => IsLongUptime(device),
                 _ => device.IsOnline || !_hideOfflineDevices
             };
 
@@ -259,6 +260,8 @@ public partial class DevicesFrame : AuthComponentBase
     private string CounterClass(QuickFilter filter) => _quickFilter == filter ? "active" : "";
 
     private static bool IsDiskFull(Device device) => device.UsedStoragePercent >= .75;
+
+    private static bool IsLongUptime(Device device) => DeviceUptime.IsLong(device, Time.Now);
 
     private bool IsOutdated(Device device) => AgentVersion.IsOutdated(device.AgentVersion, _currentAgentVersion);
 

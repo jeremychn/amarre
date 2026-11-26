@@ -38,7 +38,10 @@ public abstract class DeviceInfoGeneratorBase
             MacAddresses = MacAddressHelper.Sanitize(GetMacAddresses()),
             OrganizationID = orgID,
             AgentVersion = AppVersionHelper.GetAppVersion(),
-            HardwareId = HardwareId.Get()
+            HardwareId = HardwareId.Get(),
+            // Même compteur que le « Temps de fonctionnement » du gestionnaire des tâches : l'arrêt avec
+            // le démarrage rapide de Windows ne le remet pas à zéro, seul un redémarrage le fait.
+            LastBootTime = DateTimeOffset.UtcNow - TimeSpan.FromMilliseconds(Environment.TickCount64)
     };
     }
 

@@ -388,6 +388,7 @@ public class DataService : IDataService
         device.TotalMemory = deviceDto.TotalMemory;
         device.TotalStorage = deviceDto.TotalStorage;
         device.AgentVersion = deviceDto.AgentVersion;
+        device.LastBootTime = deviceDto.LastBootTime;
         // Adresses envoyées par le poste : 6 octets exigés, nombre plafonné (chacune devient un
         // broadcast envoyé par chaque pair au réveil).
         device.MacAddresses = MacAddressHelper.Sanitize(deviceDto.MacAddresses);

@@ -411,6 +411,9 @@ namespace Remotely.Server.Migrations.PostgreSql
                     b.Property<bool>("IsOnline")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("LastBootTime")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTimeOffset>("LastOnline")
                         .HasColumnType("timestamp with time zone");
 

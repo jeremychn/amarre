@@ -222,6 +222,6 @@ input[disabled], input[readonly], select[disabled] {
     --counter-color: var(--bs-success);
 }
 
-.counter-outdated, .counter-disk {
+.counter-outdated, .counter-disk, .counter-uptime {
     --counter-color: var(--bs-warning);
 }
