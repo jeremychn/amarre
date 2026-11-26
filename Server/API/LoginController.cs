@@ -78,17 +78,21 @@ public class LoginController : ControllerBase
             _logger.LogInformation("API login successful for {loginEmail}.", login.Email);
             return Ok();
         }
-        else if (result.IsLockedOut)
+
+        // Une seule réponse pour mot de passe faux, compte verrouillé ou 2FA exigée : un compte
+        // verrouillé répondait autrement qu'un compte inconnu.
+        if (result.IsLockedOut)
         {
             _logger.LogInformation("API login unsuccessful due to lockout for {loginEmail}.", login.Email);
-            return Unauthorized("Account is locked.");
         }
         else if (result.RequiresTwoFactor)
         {
             _logger.LogInformation("API login unsuccessful due to 2FA for {loginEmail}.", login.Email);
-            return Unauthorized("Account requires two-factor authentication.");
         }
-        _logger.LogInformation("API login unsuccessful due to bad attempt for {loginEmail}.", login.Email);
-        return BadRequest();
+        else
+        {
+            _logger.LogInformation("API login unsuccessful due to bad attempt for {loginEmail}.", login.Email);
+        }
+        return Unauthorized();
     }
 }

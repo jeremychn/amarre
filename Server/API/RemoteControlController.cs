@@ -73,33 +73,39 @@ public class RemoteControlController : ControllerBase
             return BadRequest("Request body is missing required values.");
         }
 
-        var userResult = await _dataService.GetUserByName(rcRequest.Email);
-        if (!userResult.IsSuccess)
-        {
-            return NotFound();
-        }
-
-        var orgId = userResult.Value.OrganizationID;
-
+        // Une seule réponse pour compte inconnu, mot de passe faux, compte verrouillé, 2FA exigée
+        // ou poste hors de portée : rien ne dit si le compte existe. Le compte n'est cherché
+        // qu'après la vérification du mot de passe.
         var result = await _signInManager.PasswordSignInAsync(rcRequest.Email, rcRequest.Password, false, true);
-        if (result.Succeeded &&
-            _dataService.DoesUserHaveAccessToDevice(rcRequest.DeviceID, userResult.Value))
+        if (result.Succeeded)
         {
-            _logger.LogInformation("API login successful for {rcRequestEmail}.", rcRequest.Email);
-            return await InitiateRemoteControl(rcRequest.DeviceID, orgId);
+            var userResult = await _dataService.GetUserByName(rcRequest.Email);
+            if (userResult.IsSuccess &&
+                _dataService.DoesUserHaveAccessToDevice(rcRequest.DeviceID, userResult.Value))
+            {
+                _logger.LogInformation("API login successful for {rcRequestEmail}.", rcRequest.Email);
+                return await InitiateRemoteControl(rcRequest.DeviceID, userResult.Value.OrganizationID);
+            }
+            _logger.LogInformation(
+                "API login successful for {rcRequestEmail}, but access to device {deviceId} was denied.",
+                rcRequest.Email,
+                rcRequest.DeviceID);
+            // Pas de session cookie pour une demande refusée.
+            await _signInManager.SignOutAsync();
         }
         else if (result.IsLockedOut)
         {
-            _logger.LogInformation("API login successful for {rcRequestEmail}.", rcRequest.Email);
-            return Unauthorized("Account is locked.");
+            _logger.LogInformation("API login unsuccessful due to lockout for {rcRequestEmail}.", rcRequest.Email);
         }
         else if (result.RequiresTwoFactor)
         {
-            _logger.LogInformation("API login successful for {rcRequestEmail}.", rcRequest.Email);
-            return Unauthorized("Account requires two-factor authentication.");
+            _logger.LogInformation("API login unsuccessful due to 2FA for {rcRequestEmail}.", rcRequest.Email);
         }
-        _logger.LogInformation("API login unsuccessful due to bad attempt for {rcRequestEmail}.", rcRequest.Email);
-        return BadRequest();
+        else
+        {
+            _logger.LogInformation("API login unsuccessful due to bad attempt for {rcRequestEmail}.", rcRequest.Email);
+        }
+        return Unauthorized();
     }
 
     private async Task<IActionResult> InitiateRemoteControl(string deviceID, string orgId)
@@ -110,9 +116,10 @@ public class RemoteControlController : ControllerBase
             return NotFound("The target device couldn't be found.");
         }
 
+        // Poste d'une autre organisation : même réponse qu'un poste absent.
         if (targetDevice.OrganizationID != orgId)
         {
-            return Unauthorized();
+            return NotFound("The target device couldn't be found.");
         }
 
         if (User.Identity?.IsAuthenticated == true)
