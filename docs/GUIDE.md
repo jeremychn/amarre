@@ -415,6 +415,11 @@ Ordre : serveur d'abord, agents ensuite (le serveur accepte les agents plus anci
 | `SQLite Error 13: database or disk is full`, disque plein par vagues alors que `du` ne trouve rien | Serveur antérieur à v1.13 : fichiers temporaires de SQLite supprimés mais encore ouverts (`ls -l /proc/$(docker inspect -f '{{.State.Pid}}' remotely)/fd \| grep deleted`). `docker restart remotely` libère l'espace ; passer en v1.13 corrige |
 | Un poste se connecte/déconnecte en boucle | DeviceID en double : régénérer le DeviceID du poste |
 | Conteneur de test : connexion impossible, aucun appareil | `Remotely_ConnectionStrings__SQLite` absente : le serveur a créé une base vide dans l'image au lieu d'utiliser `/app/AppData/Remotely.db` |
+| Pages de compte : « Trop de tentatives : réessayez dans une minute » (HTTP 429) | Plus de 20 envois de formulaire par minute depuis la même IP (depuis v1.26). Si tout le monde est bloqué en même temps : le reverse proxy n'est pas reconnu (`KnownProxies`), toutes les requêtes semblent venir de lui |
+| Viewer : « Trop d'essais : réessayez dans quelques minutes » | 10 ID de session ou clés faux en un quart d'heure pour ce compte (depuis v1.26) : attendre |
+| Mot de passe oublié : plus d'e-mail après quelques demandes | Au plus 3 e-mails de réinitialisation par compte et par quart d'heure (depuis v1.26) |
+| Chat qui ne s'ouvre pas, journal du client « A pipe name must be specified » | Agent et client de bureau de versions différentes (copie à la main d'un seul des deux) : réinstaller l'agent, ils sont livrés ensemble |
+| Prise en main sans surveillance : « Envoi de fichiers indisponible » dans la fenêtre de transfert | Voulu depuis v1.26 : le client tourne en SYSTEM, il n'ouvre plus de sélecteur de fichiers à l'utilisateur. Le technicien récupère les fichiers depuis le poste (terminal, script) |
 | Fichiers `Server/wwwroot/lib/*.js` modifiés après un build | Régénérés par libman au build : `git checkout -- Server/wwwroot/lib` |
 
 **Logs**
@@ -441,7 +446,7 @@ Base de données, chaînes de connexion et port : variables d'environnement du c
 | `MaxOrganizationCount` | 1 par défaut ; -1 pour plusieurs organisations |
 | `UseHttpLogging` | Journalise toutes les requêtes HTTP |
 | `Smtp*` | Envoi des e-mails (inscription, mot de passe) |
-| `PublicUrl` | Adresse publique du serveur (ex. `https://amarre.example`), base des liens des e-mails et adresse inscrite dans le client portable téléchargé depuis **/deploy**. À renseigner : vide, liens et client reprennent l'en-tête `Host` de la requête, qu'un client peut choisir. Sans effet sur les agents |
+| `PublicUrl` | Adresse publique du serveur (ex. `https://amarre.example`), base des liens des e-mails et adresse inscrite dans le client portable téléchargé depuis **/deploy**. À renseigner. Vide : l'adresse du serveur (`ServerUrl`) si elle est renseignée, sinon l'en-tête `Host` de la requête, qu'un client peut choisir. Sert aussi aux invitations (depuis v1.26). Sans effet sur les agents |
 
 **API** : documentation Swagger (`/swagger`) servie seulement en développement (`ASPNETCORE_ENVIRONMENT=Development`), jamais en production. Authentification par en-tête `X-Api-Key: <ID>:<secret>` (jeton créé dans Compte → Accès API).
 
