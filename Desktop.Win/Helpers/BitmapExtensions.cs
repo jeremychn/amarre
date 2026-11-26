@@ -25,7 +25,10 @@ public static class BitmapExtensions
             var rowBytes = Math.Min(data.Stride, skBitmap.RowBytes);
             for (var y = 0; y < bitmap.Height; y++)
             {
-                SharpDX.Utilities.CopyMemory(destination, source, rowBytes);
+                unsafe
+                {
+                    Buffer.MemoryCopy((void*)source, (void*)destination, rowBytes, rowBytes);
+                }
                 source += data.Stride;
                 destination += skBitmap.RowBytes;
             }

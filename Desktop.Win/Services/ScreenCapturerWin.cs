@@ -28,9 +28,9 @@ using Remotely.Shared.Models.Dtos;
 using Bitbound.SimpleMessenger;
 using Remotely.Desktop.Win.Helpers;
 using Remotely.Desktop.Win.Models;
-using SharpDX;
-using SharpDX.Direct3D11;
-using SharpDX.DXGI;
+using Vortice.Direct3D;
+using Vortice.Direct3D11;
+using Vortice.DXGI;
 using SkiaSharp;
 using SkiaSharp.Views.Desktop;
 using System.Collections.Concurrent;
@@ -330,7 +330,7 @@ public class ScreenCapturerWin : IScreenCapturer
             var texture2D = dxOutput.Texture2D;
             var bounds = dxOutput.Bounds;
 
-            var result = outputDuplication.TryAcquireNextFrame(timeoutInMilliseconds: 25, out var duplicateFrameInfo, out var screenResource);
+            var result = outputDuplication.AcquireNextFrame(25, out var duplicateFrameInfo, out var screenResource);
 
             if (!result.Success)
             {
@@ -339,6 +339,7 @@ public class ScreenCapturerWin : IScreenCapturer
 
             if (duplicateFrameInfo.AccumulatedFrames == 0)
             {
+                screenResource?.Dispose();
                 try
                 {
                     outputDuplication.ReleaseFrame();
@@ -347,35 +348,48 @@ public class ScreenCapturerWin : IScreenCapturer
                 return DxCaptureResult.NoAccumulatedFrames(result);
             }
 
-            using Texture2D screenTexture2D = screenResource.QueryInterface<Texture2D>();
-            device.ImmediateContext.CopyResource(screenTexture2D, texture2D);
-            var dataBox = device.ImmediateContext.MapSubresource(texture2D, 0, MapMode.Read, SharpDX.Direct3D11.MapFlags.None);
+            using (screenResource)
+            using (var screenTexture2D = screenResource.QueryInterface<ID3D11Texture2D>())
+            {
+                // Vortice : destination d'abord (SharpDX prenait la source d'abord)
+                device.ImmediateContext.CopyResource(texture2D, screenTexture2D);
+            }
+            var dataBox = device.ImmediateContext.Map(texture2D, 0, MapMode.Read, Vortice.Direct3D11.MapFlags.None);
             using var bitmap = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format32bppArgb);
             var bitmapData = bitmap.LockBits(bounds, ImageLockMode.WriteOnly, bitmap.PixelFormat);
-            var dataBoxPointer = dataBox.DataPointer;
-            var bitmapDataPointer = bitmapData.Scan0;
-            for (var y = 0; y < bounds.Height; y++)
+            try
             {
-                Utilities.CopyMemory(bitmapDataPointer, dataBoxPointer, bounds.Width * 4);
-                dataBoxPointer = nint.Add(dataBoxPointer, dataBox.RowPitch);
-                bitmapDataPointer = nint.Add(bitmapDataPointer, bitmapData.Stride);
+                var dataBoxPointer = dataBox.DataPointer;
+                var bitmapDataPointer = bitmapData.Scan0;
+                var rowBytes = bounds.Width * 4;
+                for (var y = 0; y < bounds.Height; y++)
+                {
+                    unsafe
+                    {
+                        Buffer.MemoryCopy((void*)dataBoxPointer, (void*)bitmapDataPointer, rowBytes, rowBytes);
+                    }
+                    dataBoxPointer = nint.Add(dataBoxPointer, (int)dataBox.RowPitch);
+                    bitmapDataPointer = nint.Add(bitmapDataPointer, bitmapData.Stride);
+                }
             }
-            bitmap.UnlockBits(bitmapData);
-            device.ImmediateContext.UnmapSubresource(texture2D, 0);
-            screenResource?.Dispose();
+            finally
+            {
+                bitmap.UnlockBits(bitmapData);
+                device.ImmediateContext.Unmap(texture2D, 0);
+            }
 
             switch (dxOutput.Rotation)
             {
-                case DisplayModeRotation.Unspecified:
-                case DisplayModeRotation.Identity:
+                case ModeRotation.Unspecified:
+                case ModeRotation.Identity:
                     break;
-                case DisplayModeRotation.Rotate90:
+                case ModeRotation.Rotate90:
                     bitmap.RotateFlip(RotateFlipType.Rotate270FlipNone);
                     break;
-                case DisplayModeRotation.Rotate180:
+                case ModeRotation.Rotate180:
                     bitmap.RotateFlip(RotateFlipType.Rotate180FlipNone);
                     break;
-                case DisplayModeRotation.Rotate270:
+                case ModeRotation.Rotate270:
                     bitmap.RotateFlip(RotateFlipType.Rotate90FlipNone);
                     break;
                 default:
@@ -428,41 +442,43 @@ public class ScreenCapturerWin : IScreenCapturer
         {
             ClearDirectXOutputs();
 
-            using var factory = new Factory1();
-            foreach (var adapter in factory.Adapters1.Where(x => (x.Outputs?.Length ?? 0) > 0))
+            using var factory = DXGI.CreateDXGIFactory1<IDXGIFactory1>();
+            for (uint a = 0; factory.EnumAdapters1(a, out var adapter).Success; a++)
             {
-                foreach (var output in adapter.Outputs)
+                // Le device garde sa propre référence à l'adaptateur
+                using var adapterToRelease = adapter;
+                for (uint o = 0; adapter.EnumOutputs(o, out var output).Success; o++)
                 {
+                    using var outputToRelease = output;
                     try
                     {
-                        var device = new SharpDX.Direct3D11.Device(adapter);
-                        var output1 = output.QueryInterface<Output1>();
+                        D3D11.D3D11CreateDevice(adapter, DriverType.Unknown, DeviceCreationFlags.None, null, out ID3D11Device? device).CheckError();
+                        using var output1 = output.QueryInterface<IDXGIOutput1>();
 
-                        var bounds = output1.Description.DesktopBounds;
-                        var width = bounds.Right - bounds.Left;
-                        var height = bounds.Bottom - bounds.Top;
+                        var bounds = output1.Description.DesktopCoordinates;
+                        var width = (uint)(bounds.Right - bounds.Left);
+                        var height = (uint)(bounds.Bottom - bounds.Top);
 
                         // Create Staging texture CPU-accessible
                         var textureDesc = new Texture2DDescription
                         {
-                            CpuAccessFlags = CpuAccessFlags.Read,
+                            CPUAccessFlags = CpuAccessFlags.Read,
                             BindFlags = BindFlags.None,
                             Format = Format.B8G8R8A8_UNorm,
                             Width = width,
                             Height = height,
-                            OptionFlags = ResourceOptionFlags.None,
+                            MiscFlags = ResourceOptionFlags.None,
                             MipLevels = 1,
                             ArraySize = 1,
-                            SampleDescription = { Count = 1, Quality = 0 },
+                            SampleDescription = new SampleDescription(1, 0),
                             Usage = ResourceUsage.Staging
                         };
 
-                        var texture2D = new Texture2D(device, textureDesc);
+                        var texture2D = device!.CreateTexture2D(textureDesc);
 
                         _directxScreens.Add(
                             output1.Description.DeviceName,
-                            new DirectXOutput(adapter,
-                                device,
+                            new DirectXOutput(device,
                                 output1.DuplicateOutput(device),
                                 texture2D,
                                 output1.Description.Rotation));
@@ -527,7 +543,7 @@ public class ScreenCapturerWin : IScreenCapturer
     private class DxCaptureResult
     {
         public SKBitmap? Bitmap { get; init; }
-        public SharpDX.Result? DxResult { get; init; }
+        public SharpGen.Runtime.Result? DxResult { get; init; }
         public string FailureReason { get; init; } = string.Empty;
 
         [MemberNotNull(nameof(Bitmap))]
@@ -543,7 +559,7 @@ public class ScreenCapturerWin : IScreenCapturer
             };
         }
 
-        internal static DxCaptureResult Fail(string failureReason, SharpDX.Result dxResult)
+        internal static DxCaptureResult Fail(string failureReason, SharpGen.Runtime.Result dxResult)
         {
             return new DxCaptureResult()
             {
@@ -552,7 +568,7 @@ public class ScreenCapturerWin : IScreenCapturer
             };
         }
 
-        internal static DxCaptureResult NoAccumulatedFrames(SharpDX.Result dxResult)
+        internal static DxCaptureResult NoAccumulatedFrames(SharpGen.Runtime.Result dxResult)
         {
             return new DxCaptureResult()
             {
@@ -562,7 +578,7 @@ public class ScreenCapturerWin : IScreenCapturer
             };
         }
 
-        internal static DxCaptureResult Ok(SKBitmap sKBitmap, SharpDX.Result result)
+        internal static DxCaptureResult Ok(SKBitmap sKBitmap, SharpGen.Runtime.Result result)
         {
             return new DxCaptureResult()
             {
@@ -573,9 +589,9 @@ public class ScreenCapturerWin : IScreenCapturer
             };
         }
 
-        internal static DxCaptureResult TryAcquireFailed(SharpDX.Result dxResult)
+        internal static DxCaptureResult TryAcquireFailed(SharpGen.Runtime.Result dxResult)
         {
-            if (dxResult.Code == SharpDX.DXGI.ResultCode.WaitTimeout.Code)
+            if (dxResult.Code == Vortice.DXGI.ResultCode.WaitTimeout.Code)
             {
                 return new DxCaptureResult()
                 {
