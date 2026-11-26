@@ -40,10 +40,6 @@ Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider
 
 dotnet ef database update $MigrationName --context "SqliteDbContext"
 
-Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider":' -ReplaceLineWith '    "DBProvider": "SQLServer",' -MaxCount 1
-
-dotnet ef database update $MigrationName --context "SqlServerDbContext"
-
 Replace-LineInFile -FilePath "$Root\appsettings.json" -MatchPattern '"DBProvider":' -ReplaceLineWith '    "DBProvider": "PostgreSQL",' -MaxCount 1
 
 dotnet ef database update $MigrationName --context "PostgreSqlDbContext"

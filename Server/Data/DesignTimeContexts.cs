@@ -21,24 +21,6 @@ public class SqliteDbContextDesignTime : IDesignTimeDbContextFactory<SqliteDbCon
     }
 
 }
-public class SqlServerDbContextDesignTime : IDesignTimeDbContextFactory<SqlServerDbContext>
-{
-    public SqlServerDbContext CreateDbContext(string[] args)
-    {
-        var appSettings = new Dictionary<string, string?>
-        {
-            ["ConnectionStrings:SqlServer"] = "Server=(localdb)\\mssqllocaldb;Database=Remotely-Server-53bc9b9d-9d6a-45d4-8429-2a2761773502;Trusted_Connection=True;MultipleActiveResultSets=true",
-            ["ApplicationOptions:DbProvider"] = "SqlServer"
-        };
-
-        var configuration = new ConfigurationBuilder()
-            .AddInMemoryCollection(appSettings)
-            .Build();
-
-        return new SqlServerDbContext(configuration, new DesignTimeWebHostEnvironment());
-    }
-}
-
 public class PostgreSqlDbContextDesignTime : IDesignTimeDbContextFactory<PostgreSqlDbContext>
 {
     public PostgreSqlDbContext CreateDbContext(string[] args)

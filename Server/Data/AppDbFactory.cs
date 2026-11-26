@@ -26,7 +26,6 @@ public class AppDbFactory : IAppDbFactory
         return dbProvider switch
         {
             "sqlite" => new SqliteDbContext(_configuration, _hostEnv),
-            "sqlserver" => new SqlServerDbContext(_configuration, _hostEnv),
             "postgresql" => new PostgreSqlDbContext(_configuration, _hostEnv),
             _ => throw new ArgumentException("Unknown DB provider."),
         };

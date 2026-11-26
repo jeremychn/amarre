@@ -60,12 +60,6 @@ switch (dbProvider)
             optionsLifetime: ServiceLifetime.Transient);
         break;
 
-    case "sqlserver":
-        services.AddDbContext<AppDb, SqlServerDbContext>(
-            contextLifetime: ServiceLifetime.Transient,
-            optionsLifetime: ServiceLifetime.Transient);
-        break;
-
     case "postgresql":
         services.AddDbContext<AppDb, PostgreSqlDbContext>(
             contextLifetime: ServiceLifetime.Transient,
@@ -81,7 +75,6 @@ switch (dbProvider)
 using AppDb appDb = dbProvider switch
 {
     "sqlite" => new SqliteDbContext(builder.Configuration, builder.Environment),
-    "sqlserver" => new SqlServerDbContext(builder.Configuration, builder.Environment),
     "postgresql" => new PostgreSqlDbContext(builder.Configuration, builder.Environment),
     _ => throw new InvalidOperationException($"Invalid DBProvider: {dbProvider}")
 };

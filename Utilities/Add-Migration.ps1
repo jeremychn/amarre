@@ -19,7 +19,6 @@ else {
 Push-Location $Root
 
 dotnet ef migrations add $MigrationName --context "SqliteDbContext"
-dotnet ef migrations add $MigrationName --context "SqlServerDbContext"
 dotnet ef migrations add $MigrationName --context "PostgreSqlDbContext"
 
 Pop-Location

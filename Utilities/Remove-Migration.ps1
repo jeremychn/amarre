@@ -10,7 +10,6 @@ else {
 Push-Location "$Root"
 
 dotnet ef migrations remove --context "SqliteDbContext"
-dotnet ef migrations remove --context "SqlServerDbContext"
 dotnet ef migrations remove --context "PostgreSqlDbContext"
 
 Pop-Location
