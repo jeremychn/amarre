@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Remotely.Shared.Helpers;
+using System;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -15,7 +16,8 @@ public class WakeOnLanService : IWakeOnLanService
 {
     public async Task WakeDevice(string macAddress)
     {
-        var macBytes = Convert.FromHexString(macAddress);
+        // 6 octets exigés : une adresse plus longue grossissait le paquet de diffusion.
+        var macBytes = MacAddressHelper.GetBytes(macAddress);
 
         using var client = new UdpClient();
 

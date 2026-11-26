@@ -599,7 +599,8 @@ public class CircuitConnection : CircuitHandler, ICircuitConnection
     {
         foreach (var peerDevice in peerDevices)
         {
-            foreach (var mac in deviceToWake.MacAddresses ?? Array.Empty<string>())
+            // Base remplie avant le contrôle des adresses : on refiltre.
+            foreach (var mac in MacAddressHelper.Sanitize(deviceToWake.MacAddresses))
             {
                 if (_agentSessionCache.TryGetConnectionId(peerDevice.ID, out var connectionId))
                 {

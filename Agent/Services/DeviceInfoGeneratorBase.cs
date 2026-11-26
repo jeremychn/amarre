@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Remotely.Shared.Dtos;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Models;
 using Remotely.Shared.Utilities;
 using System;
@@ -34,7 +35,7 @@ public abstract class DeviceInfoGeneratorBase
             OSDescription = RuntimeInformation.OSDescription,
             Is64Bit = Environment.Is64BitOperatingSystem,
             IsOnline = true,
-            MacAddresses = GetMacAddresses().ToArray(),
+            MacAddresses = MacAddressHelper.Sanitize(GetMacAddresses()),
             OrganizationID = orgID,
             AgentVersion = AppVersionHelper.GetAppVersion(),
             HardwareId = HardwareId.Get()

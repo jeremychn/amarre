@@ -78,6 +78,28 @@ public class DataServiceTests
     }
 
     [TestMethod]
+    public async Task AddOrUpdateDevice_MacAddresses_ValidatedAndCapped()
+    {
+        var macs = new[] { "78:e3:b5:a1:e4:5b", new string('A', 4000), "00000000000000E0" }
+            .Concat(Enumerable.Range(1, 50).Select(x => $"0200000000{x:X2}"))
+            .ToArray();
+        var newDevice = new DeviceClientDto()
+        {
+            ID = _newDeviceID,
+            OrganizationID = _testData.Org1Id,
+            DeviceName = "poste-mac",
+            MacAddresses = macs
+        };
+
+        Assert.IsTrue((await _dataService.AddOrUpdateDevice(newDevice)).IsSuccess);
+
+        var stored = (await _dataService.GetDevice(_newDeviceID)).Value!;
+        Assert.HasCount(Remotely.Shared.Helpers.MacAddressHelper.MaxAddressesPerDevice, stored.MacAddresses);
+        Assert.AreEqual("78E3B5A1E45B", stored.MacAddresses[0]);
+        Assert.IsTrue(stored.MacAddresses.All(x => x.Length == 12));
+    }
+
+    [TestMethod]
     public async Task CreateDevice()
     {
         var deviceOptions = new DeviceSetupOptions()

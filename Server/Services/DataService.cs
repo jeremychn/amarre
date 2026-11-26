@@ -8,6 +8,7 @@ using Remotely.Server.Models;
 using Remotely.Shared;
 using Remotely.Shared.Dtos;
 using Remotely.Shared.Entities;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Utilities;
 using Remotely.Shared.ViewModels;
 using System.Text.Json;
@@ -387,7 +388,9 @@ public class DataService : IDataService
         device.TotalMemory = deviceDto.TotalMemory;
         device.TotalStorage = deviceDto.TotalStorage;
         device.AgentVersion = deviceDto.AgentVersion;
-        device.MacAddresses = deviceDto.MacAddresses ?? Array.Empty<string>();
+        // Adresses envoyées par le poste : 6 octets exigés, nombre plafonné (chacune devient un
+        // broadcast envoyé par chaque pair au réveil).
+        device.MacAddresses = MacAddressHelper.Sanitize(deviceDto.MacAddresses);
         device.LastOnline = DateTimeOffset.Now;
 
         if (_hostEnvironment.IsDevelopment() && dbContext.Organizations.Any())
