@@ -80,7 +80,8 @@ public class ScriptResultsController : ControllerBase
         if (result.HadErrors && result.SavedScriptId.HasValue)
         {
             var savedScriptResult = await _dataService.GetSavedScript(result.SavedScriptId.Value);
-            if (!savedScriptResult.IsSuccess)
+            // Script d'une autre organisation : ni alerte ni e-mail chez elle.
+            if (!savedScriptResult.IsSuccess || savedScriptResult.Value.OrganizationID != orgId)
             {
                 return NotFound();
             }
