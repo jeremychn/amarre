@@ -211,10 +211,19 @@ public class DesktopHub : Hub<IDesktopHubClient>
 
     public Task<Result> ReceiveUnattendedSessionInfo(Guid unattendedSessionId, string accessKey, string machineName, string requesterName, string organizationName)
     {
-        // Session créée par le serveur (prise en main, relancement) : sa clé est connue dès la
-        // création, seul le client de bureau lancé par l'agent la reçoit. Une clé vide ne passe pas.
-        if (_sessionCache.TryGetValue($"{unattendedSessionId}", out var existingSession) &&
-            !AccessKeyMatches(existingSession.AccessKey, accessKey))
+        // Seulement une session créée par le serveur (prise en main depuis la console ou l'API,
+        // relancement) : sa clé est connue dès la création, seul le client de bureau lancé par l'agent
+        // la reçoit. Session inconnue (après un redémarrage du serveur, par exemple) ou clé vide :
+        // refusé, la session se relance depuis la console.
+        if (!_sessionCache.TryGetValue($"{unattendedSessionId}", out var existingSession))
+        {
+            _logger.LogWarning(
+                "A desktop client announced an unattended session unknown to the server.  Session ID: {sessionId}.",
+                unattendedSessionId);
+            return Task.FromResult(Result.Fail("Session inconnue du serveur : relancer la prise en main depuis la console."));
+        }
+
+        if (!AccessKeyMatches(existingSession.AccessKey, accessKey))
         {
             _logger.LogWarning(
                 "A desktop session tried to take over an existing session, " +
@@ -223,7 +232,7 @@ public class DesktopHub : Hub<IDesktopHubClient>
             return Task.FromResult(result);
         }
 
-        SessionInfo = _sessionCache.GetOrAdd($"{unattendedSessionId}", (key) => SessionInfo);
+        SessionInfo = existingSession;
 
         SessionInfo.Mode = RemoteControlMode.Unattended;
         SessionInfo.DesktopConnectionId = Context.ConnectionId;

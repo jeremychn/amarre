@@ -105,6 +105,34 @@ public class UnattendedSessionAccessKeyTests
         Assert.AreEqual(context.Object.ConnectionId, session.DesktopConnectionId);
     }
 
+    // Session inconnue du serveur (après un redémarrage, ou ID inventé) : refusée, rien n'est créé.
+    [TestMethod]
+    public async Task SessionInconnue_Refusee()
+    {
+        var (hub, session, _) = CreateDesktopHub("bonne-cle");
+        var unknownId = Guid.NewGuid();
+
+        var result = await hub.ReceiveUnattendedSessionInfo(unknownId, "cle-du-client", "poste", "", "");
+
+        Assert.IsFalse(result.IsSuccess);
+        Assert.IsFalse(_lastSessionCache!.TryGetValue($"{unknownId}", out _));
+        Assert.AreEqual(string.Empty, session.DesktopConnectionId);
+    }
+
+    // Client relancé (changement de session Windows, redémarrage du client) : même ID, même clé, accepté.
+    [TestMethod]
+    public async Task ClientRelance_MemeCle_Accepte()
+    {
+        var (hub, session, _) = CreateDesktopHub("bonne-cle");
+        Assert.IsTrue((await hub.ReceiveUnattendedSessionInfo(session.UnattendedSessionId, "bonne-cle", "poste", "", "")).IsSuccess);
+
+        var relaunched = CreateDesktopHub(_lastSessionCache!, "bureau-2");
+        var result = await relaunched.ReceiveUnattendedSessionInfo(session.UnattendedSessionId, "bonne-cle", "poste", "", "");
+
+        Assert.IsTrue(result.IsSuccess);
+        Assert.AreEqual("bureau-2", session.DesktopConnectionId);
+    }
+
     // Session sans clé (ne devrait plus exister) : plus personne ne peut s'en emparer.
     [TestMethod]
     public async Task SessionSansCle_Refuse()
@@ -116,7 +144,7 @@ public class UnattendedSessionAccessKeyTests
         Assert.IsFalse(result.IsSuccess);
     }
 
-    private static (DesktopHub Hub, RemoteControlSession Session, Mock<HubCallerContext> Context) CreateDesktopHub(string accessKey)
+    private (DesktopHub Hub, RemoteControlSession Session, Mock<HubCallerContext> Context) CreateDesktopHub(string accessKey)
     {
         var session = new RemoteControlSession
         {
@@ -128,9 +156,21 @@ public class UnattendedSessionAccessKeyTests
             new Mock<ISystemTime>().Object,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<RemoteControlSessionCache>.Instance);
         sessionCache.AddOrUpdate($"{session.UnattendedSessionId}", session);
+        _lastSessionCache = sessionCache;
 
-        var context = new Mock<HubCallerContext>();
-        context.Setup(x => x.ConnectionId).Returns("bureau-1");
+        var hub = CreateDesktopHub(sessionCache, "bureau-1", out var context);
+        return (hub, session, context);
+    }
+
+    private RemoteControlSessionCache? _lastSessionCache;
+
+    private static DesktopHub CreateDesktopHub(RemoteControlSessionCache sessionCache, string connectionId) =>
+        CreateDesktopHub(sessionCache, connectionId, out _);
+
+    private static DesktopHub CreateDesktopHub(RemoteControlSessionCache sessionCache, string connectionId, out Mock<HubCallerContext> context)
+    {
+        context = new Mock<HubCallerContext>();
+        context.Setup(x => x.ConnectionId).Returns(connectionId);
         context.Setup(x => x.Items).Returns(new Dictionary<object, object?>());
 
         var hub = new DesktopHub(
@@ -143,6 +183,6 @@ public class UnattendedSessionAccessKeyTests
         {
             Context = context.Object,
         };
-        return (hub, session, context);
+        return hub;
     }
 }
