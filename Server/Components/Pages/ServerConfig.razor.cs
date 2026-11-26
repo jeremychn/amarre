@@ -226,7 +226,7 @@ public partial class ServerConfig : AuthComponentBase
             return;
         }
 
-        var success = await EmailSender.SendEmailAsync(User.Email, "Remotely : e-mail de test", "Les paramètres SMTP fonctionnent.", User.OrganizationID);
+        var success = await EmailSender.SendEmailAsync(User.Email, "Amarre : e-mail de test", "Les paramètres SMTP fonctionnent.", User.OrganizationID);
         if (success)
         {
             ToastService.ShowToast($"E-mail de test envoyé à {User.Email}. Vérifiez la boîte de réception (ou les indésirables).");

@@ -379,12 +379,12 @@ public partial class ManageOrganization : AuthComponentBase
             }
 
             var inviteURL = $"{NavManager.BaseUri}Invite/{newInvite.Value.ID}";
-            var emailResult = await EmailSender.SendEmailAsync(invite.InvitedUser, "Invitation à rejoindre une organisation Remotely",
+            var emailResult = await EmailSender.SendEmailAsync(invite.InvitedUser, "Invitation à rejoindre une organisation Amarre",
                     $@"<img src='{NavManager.BaseUri}images/Remotely_Logo.png'/>
                             <br><br>
                             Bonjour,
                             <br><br>
-                            Vous êtes invité à rejoindre une organisation dans Remotely.
+                            Vous êtes invité à rejoindre une organisation dans Amarre.
                             <br><br>
                             Pour la rejoindre, <a href='{HtmlEncoder.Default.Encode(inviteURL)}'>cliquez ici</a>.",
                     User.OrganizationID);
