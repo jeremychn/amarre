@@ -10,6 +10,7 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Remotely.Shared.Extensions;
+using Remotely.Shared.Helpers;
 using System.IO;
 
 namespace Remotely.Desktop.Win.Services;
@@ -85,6 +86,8 @@ public class FileTransferServiceWin : IFileTransferService
 
             if (startOfFile)
             {
+                // Nom choisi par le viewer : jamais de chemin, sinon écriture hors du dossier partagé.
+                fileName = PathSanitizer.GetSafeFileName(fileName);
                 var filePath = Path.Combine(baseDir, fileName);
 
                 if (File.Exists(filePath))

@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using Remotely.Desktop.UI.Controls.Dialogs;
 using Remotely.Desktop.UI.Views;
 using Remotely.Desktop.UI.Services;
+using Remotely.Shared.Helpers;
 using System.Threading;
 using System.IO;
 
@@ -79,6 +80,8 @@ public class FileTransferServiceLinux : IFileTransferService
 
             if (startOfFile)
             {
+                // Nom choisi par le viewer : jamais de chemin, sinon écriture hors du dossier partagé.
+                fileName = PathSanitizer.GetSafeFileName(fileName);
                 var filePath = Path.Combine(baseDir, fileName);
 
                 if (File.Exists(filePath))
