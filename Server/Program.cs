@@ -117,7 +117,7 @@ services.AddIdentityCore<RemotelyUser>(options =>
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
     .AddEntityFrameworkStores<AppDb>()
-    .AddSignInManager()
+    .AddSignInManager<AccountSignInManager>()
     .AddDefaultTokenProviders();
 
 services.AddScoped<IAuthorizationHandler, TwoFactorRequiredHandler>();
