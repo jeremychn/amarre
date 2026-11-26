@@ -43,18 +43,17 @@ su - $Owner -c "brew update"
 
 # Install other dependencies
 su - $Owner -c "brew install curl"
-su - $Owner -c "brew install jq"
 
 
 if [ -f "$InstallDir/ConnectionInfo.json" ]; then
-    # Fichier lisible par root seulement : lu ici, jq lancé par le propriétaire de Homebrew
-    # (jq de Homebrew : absent du PATH de root quand l'agent lance la mise à jour, et modifiable
-    # par ce propriétaire, donc jamais exécuté par root).
-    SavedGUID=`cat "$InstallDir/ConnectionInfo.json" | su - $Owner -c "jq -r '.DeviceID'"`
-    SavedHost=$(su - "$Owner" -c "jq -r '.Host // empty'" < "$InstallDir/ConnectionInfo.json")
+    # Fichier lisible par root seulement : lu par plutil (outil système, macOS 12+), jamais par le jq
+    # de Homebrew, que son propriétaire peut remplacer pour lire le jeton.
+    ReadSaved() { /usr/bin/plutil -extract "$1" raw -o - "$InstallDir/ConnectionInfo.json" 2>/dev/null; }
+    SavedGUID=$(ReadSaved DeviceID)
+    SavedHost=$(ReadSaved Host)
     # Mise à jour vers le même serveur : garder le jeton, sinon le poste ne se fait plus reconnaître.
     if [ "${SavedHost%/}" = "${HostName%/}" ]; then
-        SavedToken=$(su - "$Owner" -c "jq -r '.ServerVerificationToken // empty'" < "$InstallDir/ConnectionInfo.json")
+        SavedToken=$(ReadSaved ServerVerificationToken)
     fi
     if [[ "$SavedGUID" != "null" && -n "$SavedGUID" ]]; then
         GUID="$SavedGUID"

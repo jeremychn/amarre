@@ -50,7 +50,7 @@ public class CustomBinariesController(
         // Adresse inscrite dans le client : l'URL publique si elle est renseignée, sinon l'hôte de la requête.
         var settings = await _dataService.GetSettings();
         var effectiveScheme = settings.ForceClientHttps ? "https" : Request.Scheme;
-        var serverUrl = PublicUrl.Resolve(settings.PublicUrl, $"{effectiveScheme}://{Request.Host}");
+        var serverUrl = PublicUrl.Resolve(settings.PublicUrl, settings.ServerUrl, $"{effectiveScheme}://{Request.Host}");
         return new EmbeddedServerData(serverUrl, organizationId);
     }
 }

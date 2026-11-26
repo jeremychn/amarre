@@ -41,3 +41,25 @@ internal class DesktopEnvironment : IDesktopEnvironment
         }
     }
 }
+
+/// <summary>
+/// Vrai si le client tourne sous SYSTEM (Windows, lancé par l'agent avec le jeton de winlogon)
+/// ou root (Linux, aucun utilisateur trouvé) : il s'affiche alors sur le bureau d'un utilisateur
+/// qui n'a pas ces droits, et ne doit rien lui ouvrir qui permette de lancer un programme
+/// (sélecteur de fichiers, explorateur).
+/// </summary>
+public static class SystemAccount
+{
+    public static bool IsCurrent
+    {
+        get
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var identity = WindowsIdentity.GetCurrent();
+                return identity.IsSystem;
+            }
+            return OperatingSystem.IsLinux() && Libc.geteuid() == 0;
+        }
+    }
+}

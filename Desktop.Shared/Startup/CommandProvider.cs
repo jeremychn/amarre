@@ -1,3 +1,4 @@
+using Remotely.Shared.Helpers;
 using System.CommandLine;
 using CommunityToolkit.Diagnostics;
 using Remotely.Desktop.Shared.Enums;
@@ -50,12 +51,14 @@ public static class CommandProvider
 
         var pipeNameOption = new Option<string>("--pipe-name", "-p")
         {
-            Description = "When AppMode is Chat, this is the pipe name used by the named pipes server."
+            Description = "When AppMode is Chat, this is the pipe name used by the named pipes server. " +
+                "Use - to read it from standard input. If omitted, the AMARRE_PIPE_NAME environment variable is used."
         };
         pipeNameOption.Validators.Add(result =>
         {
             if (result.GetValue(modeOption) == AppMode.Chat &&
-                string.IsNullOrWhiteSpace(result.GetValueOrDefault<string>()))
+                string.IsNullOrWhiteSpace(result.GetValueOrDefault<string>()) &&
+                string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(DesktopAccessKey.PipeNameEnvironmentVariable)))
             {
                 result.AddError("A pipe name must be specified when AppMode is Chat.");
             }

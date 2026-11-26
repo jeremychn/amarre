@@ -95,7 +95,9 @@ public class ChatClientService : IChatClientService
                     return;
                 }
 
-                var clientPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                var clientPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous,
+                    // Le serveur du tube ne peut pas prendre l'identité de l'agent (SYSTEM ou root).
+                    System.Security.Principal.TokenImpersonationLevel.Identification);
                 clientPipe.Connect(15000);
                 if (!clientPipe.IsConnected)
                 {

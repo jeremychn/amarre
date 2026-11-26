@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Logging;
 using Remotely.Shared.Models;
 using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text.Json;
 
 namespace Remotely.Desktop.Shared.Services;
@@ -27,7 +29,7 @@ public class ChatHostService : IChatHostService
 
     public async Task StartChat(string pipeName, string organizationName)
     {
-        _namedPipeStream = new NamedPipeServerStream(pipeName, PipeDirection.InOut, 10, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        _namedPipeStream = CreatePipe(pipeName);
         _writer = new StreamWriter(_namedPipeStream);
         _reader = new StreamReader(_namedPipeStream);
 
@@ -49,6 +51,26 @@ public class ChatHostService : IChatHostService
         _chatUiService.ShowChatWindow(organizationName, _writer);
 
         _ = Task.Run(ReadFromStream);
+    }
+
+    // Une seule instance, créée par ce processus (échec si le nom est déjà pris) ; sous Windows,
+    // réservée à ce compte et à SYSTEM (l'agent). ponytail: sous Linux, la socket reste dans /tmp avec
+    // les droits par défaut (l'agent root doit pouvoir s'y connecter) ; son nom n'est plus annoncé.
+    private static NamedPipeServerStream CreatePipe(string pipeName)
+    {
+        const PipeOptions options = PipeOptions.Asynchronous | PipeOptions.FirstPipeInstance;
+        if (!OperatingSystem.IsWindows())
+        {
+            return new NamedPipeServerStream(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        }
+
+        var security = new PipeSecurity();
+        using var identity = WindowsIdentity.GetCurrent();
+        foreach (var sid in new[] { identity.User!, new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null) })
+        {
+            security.AddAccessRule(new PipeAccessRule(sid, PipeAccessRights.ReadWrite, AccessControlType.Allow));
+        }
+        return NamedPipeServerStreamAcl.Create(pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, options, 0, 0, security);
     }
 
     private void OnChatWindowClosed(object? sender, EventArgs e)

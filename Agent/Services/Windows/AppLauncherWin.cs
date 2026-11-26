@@ -41,9 +41,8 @@ public class AppLauncherWin : IAppLauncher
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
             var args = GetDesktopArguments("Chat", requesterName, orgName, orgId);
-            args.AddRange(["--pipe-name", pipeName]);
 
-            var processId = StartDesktopApp(args, targetSessionId: -1);
+            var processId = StartDesktopApp(args, targetSessionId: -1, pipeName: pipeName);
             if (processId > 0)
             {
                 return processId;
@@ -163,11 +162,17 @@ public class AppLauncherWin : IAppLauncher
     // La clé d'accès passe par une variable d'environnement du seul processus enfant, pas par la
     // ligne de commande (liste des processus, journaux d'audit) : voir DesktopAccessKey.
     // Renvoie l'ID du processus, ou -1 si le lancement a échoué.
-    private int StartDesktopApp(List<string> arguments, int targetSessionId, string? accessKey = null)
+    private int StartDesktopApp(List<string> arguments, int targetSessionId, string? accessKey = null, string? pipeName = null)
     {
-        var environment = string.IsNullOrEmpty(accessKey)
-            ? null
-            : new Dictionary<string, string> { [DesktopAccessKey.EnvironmentVariable] = accessKey };
+        var environment = new Dictionary<string, string>();
+        if (!string.IsNullOrEmpty(accessKey))
+        {
+            environment[DesktopAccessKey.EnvironmentVariable] = accessKey;
+        }
+        if (!string.IsNullOrEmpty(pipeName))
+        {
+            environment[DesktopAccessKey.PipeNameEnvironmentVariable] = pipeName;
+        }
 
         if (WindowsIdentity.GetCurrent().IsSystem)
         {
@@ -185,9 +190,9 @@ public class AppLauncherWin : IAppLauncher
         {
             psi.ArgumentList.Add(argument);
         }
-        if (!string.IsNullOrEmpty(accessKey))
+        foreach (var (name, value) in environment)
         {
-            psi.Environment[DesktopAccessKey.EnvironmentVariable] = accessKey;
+            psi.Environment[name] = value;
         }
         return Process.Start(psi)?.Id ?? -1;
     }

@@ -63,9 +63,14 @@
       </ScrollViewer>
     </Border>
 
+    <TextBlock Grid.Row="3" Margin="0,10,0,0" TextWrapping="Wrap"
+               IsVisible="{Binding !CanUploadFiles}">
+      Envoi de fichiers indisponible pendant une prise en main sans surveillance : le technicien peut les récupérer depuis le poste.
+    </TextBlock>
     <Button Grid.Row="3" Margin="0,10,0,0" 
 			Height="60" 
             Classes="NormalButton"
+            IsVisible="{Binding CanUploadFiles}"
 			HorizontalAlignment="Stretch"
 			HorizontalContentAlignment="Center"
 			VerticalContentAlignment="Center"

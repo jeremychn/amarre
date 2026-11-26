@@ -11,6 +11,12 @@ public static class DesktopAccessKey
 {
     public const string EnvironmentVariable = "AMARRE_ACCESS_KEY";
 
+    /// <summary>
+    /// Nom du tube du chat, transmis de la même façon que la clé : visible dans la ligne de commande,
+    /// il laissait un utilisateur local créer le tube avant le client et s'interposer dans le chat.
+    /// </summary>
+    public const string PipeNameEnvironmentVariable = "AMARRE_PIPE_NAME";
+
     /// <summary>Valeur de <c>--access-key</c> qui demande de lire la clé sur l'entrée standard.</summary>
     public const string FromStandardInput = "-";
 

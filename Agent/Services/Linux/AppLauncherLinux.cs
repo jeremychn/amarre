@@ -57,8 +57,9 @@ public class AppLauncherLinux : IAppLauncher
             // Start Desktop app.
             await hubConnection.SendAsync("DisplayMessage", $"Starting chat service.", "Starting chat service.", "bg-success", userConnectionId);
             var args = GetDesktopArguments("Chat", requesterName, orgName, orgId);
-            args.AddRange(["--pipe-name", pipeName]);
-            return StartLinuxDesktopApp(args);
+            // Nom du tube sur l'entrée standard, comme la clé d'accès.
+            args.AddRange(["--pipe-name", DesktopAccessKey.FromStandardInput]);
+            return StartLinuxDesktopApp(args, pipeName);
         }
         catch (Exception ex)
         {
@@ -127,6 +128,7 @@ public class AppLauncherLinux : IAppLauncher
     // La clé d'accès part sur l'entrée standard (« --access-key - »), pas dans les arguments :
     // /proc/<pid>/cmdline est lisible par tout utilisateur du poste, et sudo ne transmet pas
     // les variables d'environnement.
+    // standardInput : clé d'accès, ou nom du tube du chat.
     private int StartLinuxDesktopApp(List<string> desktopArgs, string? accessKey = null)
     {
         var xdisplay = ":0";

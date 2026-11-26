@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Remotely.Server.Models;
 using Remotely.Server.Services;
 
 namespace Remotely.Server.Components.Account;
@@ -13,11 +14,11 @@ internal static class AccountLinks
 {
     public static string Build(
         NavigationManager navigationManager,
-        string? publicUrl,
+        SettingsModel settings,
         string relativePath,
         IReadOnlyDictionary<string, object?> query)
     {
-        var target = new Uri(PublicUrl.Resolve(publicUrl, navigationManager.BaseUri), relativePath);
+        var target = new Uri(PublicUrl.Resolve(settings.PublicUrl, settings.ServerUrl, navigationManager.BaseUri), relativePath);
         return navigationManager.GetUriWithQueryParameters(target.AbsoluteUri, query);
     }
 }

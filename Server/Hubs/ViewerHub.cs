@@ -10,6 +10,10 @@ namespace Remotely.Server.Hubs;
 
 public class ViewerHub : Hub<IViewerHubClient>
 {
+    // ID de session assistée (9 chiffres) ou clé fausse : 10 échecs par compte (ou IP) et par
+    // quart d'heure, sinon un compte de n'importe quelle organisation balaie les sessions ouvertes.
+    private static readonly AttemptLimiter _sessionLookupFailures = new(10, TimeSpan.FromMinutes(15));
+
     private readonly IHubContext<DesktopHub, IDesktopHubClient> _desktopHub;
     private readonly IHubContext<AgentHub, IAgentHubClient> _agentHub;
     private readonly IDataService _dataService;
@@ -233,14 +237,23 @@ public class ViewerHub : Hub<IViewerHubClient>
             return Result.Fail("L'ID de session est vide.");
         }
 
+        var limiterKey = Context.UserIdentifier ?? $"ip:{Context.GetHttpContext()?.Connection.RemoteIpAddress}";
+        if (_sessionLookupFailures.IsBlocked(limiterKey))
+        {
+            _logger.LogWarning("Too many failed session lookups.  Key: {key}.", limiterKey);
+            return Result.Fail("Trop d'essais : réessayez dans quelques minutes.");
+        }
+
         if (!_desktopSessionCache.TryGetValue(sessionId, out var session))
         {
+            _sessionLookupFailures.TryRecord(limiterKey);
             return Result.Fail("ID de session introuvable.");
         }
 
         if (session.Mode == RemoteControlMode.Unattended &&
-            accessKey != session.AccessKey)
+            !DesktopHub.AccessKeyMatches(session.AccessKey, accessKey))
         {
+            _sessionLookupFailures.TryRecord(limiterKey);
             _logger.LogError("Access key does not match for unattended session.  " +
                 "Session ID: {sessionId}.  " +
                 "Requester Name: {requesterName}.  " +
@@ -259,6 +272,14 @@ public class ViewerHub : Hub<IViewerHubClient>
         if (Context.User?.Identity?.IsAuthenticated == true)
         {
             SessionInfo.RequesterUserName = Context.User.Identity.Name ?? string.Empty;
+            // Le nom saisi est libre : le compte réel l'accompagne dans la demande d'accès.
+            if (!string.IsNullOrEmpty(Context.User.Identity.Name) &&
+                !string.Equals(requesterName, Context.User.Identity.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                RequesterDisplayName = string.IsNullOrWhiteSpace(requesterName)
+                    ? Context.User.Identity.Name
+                    : $"{requesterName} ({Context.User.Identity.Name})";
+            }
         }
 
         var logMessage = $"Remote control session requested.  " +

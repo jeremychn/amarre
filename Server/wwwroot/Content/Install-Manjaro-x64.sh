@@ -35,7 +35,7 @@ WorkDir=$(mktemp -d)
 trap 'rm -rf "$WorkDir"' EXIT
 
 pacman -Sy
-pacman -S dotnet-runtime-8.0 --noconfirm
+# Agent autonome (runtime .NET embarqué) : pas de runtime .NET système à installer.
 pacman -S libx11 --noconfirm
 pacman -S unzip --noconfirm
 pacman -S libc6 --noconfirm

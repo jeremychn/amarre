@@ -358,9 +358,13 @@ public class OrganizationManagementController : ControllerBase
                 return BadRequest(newInvite.Reason);
             }
 
-            var inviteURL = $"{Request.Scheme}://{Request.Host}/Invite/{newInvite.Value.ID}";
+            // Même base que les liens des pages de compte (URL publique, sinon URL du serveur).
+            var settings = await _dataService.GetSettings();
+            var baseUri = PublicUrl.Resolve(settings.PublicUrl, settings.ServerUrl, $"{Request.Scheme}://{Request.Host}/");
+            var inviteURL = new Uri(baseUri, $"Invite/{newInvite.Value.ID}").AbsoluteUri;
+            var logoUrl = new Uri(baseUri, "images/Remotely_Logo.png").AbsoluteUri;
             var emailResult = await _emailSender.SendEmailAsync(invite.InvitedUser, "Invitation à rejoindre une organisation Amarre",
-                        $@"<img src='{Request.Scheme}://{Request.Host}/images/Remotely_Logo.png'/>
+                        $@"<img src='{HtmlEncoder.Default.Encode(logoUrl)}'/>
                             <br><br>
                             Bonjour,
                             <br><br>

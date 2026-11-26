@@ -53,10 +53,13 @@ public class ExpiringTokenFilter : ActionFilterAttribute, IAsyncAuthorizationFil
         var http = context.HttpContext;
         http.Request.Headers["OrganizationID"] = string.Empty;
 
+        // Utilisateur connecté : administrateurs seulement, comme une clé d'API. Ces actions servent aux
+        // agents (script, fichiers, résultat) ; un non-admin y écrirait des résultats pour des postes
+        // hors de ses groupes ou lirait les scripts privés des autres.
         if (http.User.Identity?.IsAuthenticated == true)
         {
             var userResult = await _dataService.GetUserByName($"{http.User.Identity.Name}");
-            if (!userResult.IsSuccess)
+            if (!userResult.IsSuccess || !userResult.Value.IsAdministrator)
             {
                 http.Response.StatusCode = (int)HttpStatusCode.Forbidden;
                 context.Result = new UnauthorizedResult();

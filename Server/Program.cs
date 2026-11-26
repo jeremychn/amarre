@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -208,6 +209,18 @@ services.AddSignalR(options =>
 
 services.AddRateLimiter(options =>
 {
+    // Formulaires anonymes des pages de compte (connexion, mot de passe oublié, renvoi de confirmation,
+    // inscription) : 20 envois par minute et par IP. Chacun peut envoyer un e-mail ou tester un mot de passe.
+    // ponytail: plafond large, car derrière un proxy mal déclaré (KnownProxies) toutes les requêtes ont la même IP.
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        HttpMethods.IsPost(context.Request.Method) &&
+        context.Request.Path.StartsWithSegments("/Account", StringComparison.OrdinalIgnoreCase)
+            ? RateLimitPartition.GetFixedWindowLimiter(
+                $"{context.Connection.RemoteIpAddress}",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) })
+            : RateLimitPartition.GetNoLimiter(string.Empty));
+
     options.AddConcurrencyLimiter(RatePolicyNames.AgentUpdateDownloads, clOptions =>
     {
         clOptions.QueueLimit = int.MaxValue;

@@ -60,6 +60,7 @@ public class DtoMessageHandler : IDtoMessageHandler
                 case DtoType.TextTransfer:
                 case DtoType.KeyPress:
                 case DtoType.SetKeyStatesUp:
+                case DtoType.OpenFileTransferWindow:
                     {
                         if (!viewer.HasControl)
                         {

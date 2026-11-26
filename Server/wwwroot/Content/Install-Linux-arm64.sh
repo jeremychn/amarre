@@ -37,8 +37,7 @@ fi
 WorkDir=$(mktemp -d)
 trap 'rm -rf "$WorkDir"' EXIT
 
-apt-get -y install apt-transport-https
-apt-get -y install dotnet-runtime-8.0
+# Agent autonome (runtime .NET embarqué) : pas de runtime .NET système à installer.
 apt-get -y install libx11-dev
 apt-get -y install libxrandr-dev
 apt-get -y install unzip

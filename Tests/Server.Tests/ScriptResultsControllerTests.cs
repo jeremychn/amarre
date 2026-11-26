@@ -57,6 +57,20 @@ public class ScriptResultsControllerTests
         Assert.AreEqual(0, _dataService.GetAlerts(_testData.Org2Admin1.Id).Count());
     }
 
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task AddScriptResult_ScriptDUneAutreOrganisation_PasRattache()
+    {
+        var autre = await AddScript(_testData.Org2Admin1.Id);
+        var meme = await AddScript(_testData.Org1Admin1.Id);
+
+        var refuse = await _dataService.AddScriptResult(new ScriptResultDto { DeviceID = _testData.Org1Device1.ID, SavedScriptId = autre.Id });
+        var garde = await _dataService.AddScriptResult(new ScriptResultDto { DeviceID = _testData.Org1Device1.ID, SavedScriptId = meme.Id });
+
+        Assert.IsNull((await _dataService.GetScriptResult(refuse.Value!.ID)).Value!.SavedScriptId);
+        Assert.AreEqual(meme.Id, (await _dataService.GetScriptResult(garde.Value!.ID)).Value!.SavedScriptId);
+    }
+
     private async Task<SavedScript> AddScript(string userId)
     {
         var script = new SavedScript

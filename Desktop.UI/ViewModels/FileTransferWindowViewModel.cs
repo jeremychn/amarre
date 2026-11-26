@@ -11,6 +11,8 @@ namespace Remotely.Desktop.UI.ViewModels;
 
 public interface IFileTransferWindowViewModel : IBrandedViewModelBase
 {
+    /// <summary>Faux sous SYSTEM ou root : voir <see cref="SystemAccount"/>.</summary>
+    bool CanUploadFiles { get; }
     ObservableCollection<FileUpload> FileUploads { get; }
     ICommand OpenFileUploadDialogCommand { get; }
     ICommand RemoveFileUploadCommand { get; }
@@ -42,6 +44,10 @@ public class FileTransferWindowViewModel : BrandedViewModelBase, IFileTransferWi
         OpenFileUploadDialogCommand = new AsyncRelayCommand<FileTransferWindow>(OpenFileUploadDialog);
         RemoveFileUploadCommand = new RelayCommand<FileUpload>(RemoveFileUpload);
     }
+
+    // Le sélecteur de fichiers s'exécute dans ce processus : sous SYSTEM, l'utilisateur au clavier
+    // pourrait y lancer un programme avec ces droits (clic droit « Ouvrir »).
+    public bool CanUploadFiles { get; } = !SystemAccount.IsCurrent;
 
     public ObservableCollection<FileUpload> FileUploads { get; } = new ObservableCollection<FileUpload>();
 
@@ -98,7 +104,7 @@ public class FileTransferWindowViewModel : BrandedViewModelBase, IFileTransferWi
 
     private async Task OpenFileUploadDialog(FileTransferWindow? window)
     {
-        if (window is null)
+        if (window is null || !CanUploadFiles)
         {
             return;
         }

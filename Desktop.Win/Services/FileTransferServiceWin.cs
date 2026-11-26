@@ -210,6 +210,16 @@ public class FileTransferServiceWin : IFileTransferService
         // Prevent multiple dialogs from popping up.
         if (_result is null)
         {
+            // Sous SYSTEM, explorer.exe lancé d'ici tournerait avec ces droits sur le bureau de l'utilisateur.
+            if (SystemAccount.IsCurrent)
+            {
+                _result = await _dialogProvider.Show($"Transfert terminé. Fichiers enregistrés dans :\n\n{GetBaseDirectory()}",
+                    "Transfert terminé",
+                    MessageBoxType.OK);
+                _result = null;
+                return;
+            }
+
             _result = await _dialogProvider.Show("File transfer complete.  Show folder?",
                 "Transfer Complete",
                 MessageBoxType.YesNo);

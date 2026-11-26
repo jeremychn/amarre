@@ -509,6 +509,19 @@ public class DataService : IDataService
 
         var entry = dbContext.Attach(scriptResult);
         entry.CurrentValues.SetValues(dto);
+
+        // Clés étrangères envoyées par l'appelant : seulement vers un script ou une planification
+        // de l'organisation du poste.
+        if (dto.SavedScriptId is { } savedScriptId &&
+            !await dbContext.SavedScripts.AnyAsync(x => x.Id == savedScriptId && x.OrganizationID == device.OrganizationID))
+        {
+            scriptResult.SavedScriptId = null;
+        }
+        if (dto.ScheduleId is { } scheduleId &&
+            !await dbContext.ScriptSchedules.AnyAsync(x => x.Id == scheduleId && x.OrganizationID == device.OrganizationID))
+        {
+            scriptResult.ScheduleId = null;
+        }
         entry.State = EntityState.Added;
         await dbContext.ScriptResults.AddAsync(scriptResult);
         await dbContext.SaveChangesAsync();

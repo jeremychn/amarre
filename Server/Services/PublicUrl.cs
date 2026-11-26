@@ -32,5 +32,12 @@ public static class PublicUrl
     /// L'URL publique si elle est valide, sinon l'adresse de la requête (en-tête Host).
     /// </summary>
     public static Uri Resolve(string? publicUrl, string requestBaseUri) =>
-        TryParse(publicUrl, out var baseUri) ? baseUri : new Uri(requestBaseUri);
+        Resolve(publicUrl, null, requestBaseUri);
+
+    /// <summary>
+    /// L'URL publique, sinon l'URL du serveur (<c>ServerUrl</c>, réglée par l'admin pour les agents),
+    /// sinon seulement l'adresse de la requête : l'en-tête Host vient du client.
+    /// </summary>
+    public static Uri Resolve(string? publicUrl, string? serverUrl, string requestBaseUri) =>
+        TryParse(publicUrl, out var baseUri) || TryParse(serverUrl, out baseUri) ? baseUri : new Uri(requestBaseUri);
 }

@@ -102,17 +102,22 @@ public static class IServiceProviderExtensions
                     parseResult.GetValue<string>("--access-key"),
                     () => Environment.GetEnvironmentVariable(DesktopAccessKey.EnvironmentVariable),
                     Console.In.ReadLine);
+                var pipeName = DesktopAccessKey.Resolve(
+                    parseResult.GetValue<string>("--pipe-name"),
+                    () => Environment.GetEnvironmentVariable(DesktopAccessKey.PipeNameEnvironmentVariable),
+                    Console.In.ReadLine);
                 var elevate = parseResult.GetValue<bool>("--elevate");
                 if (!elevate)
                 {
                     // Le relancement élevé hérite de l'environnement ; sinon, rien ne doit en hériter.
                     Environment.SetEnvironmentVariable(DesktopAccessKey.EnvironmentVariable, null);
+                    Environment.SetEnvironmentVariable(DesktopAccessKey.PipeNameEnvironmentVariable, null);
                 }
 
                 await services.UseRemoteControlClient(
                     host ?? string.Empty,
                     parseResult.GetValue<AppMode>("--mode"),
-                    parseResult.GetValue<string>("--pipe-name") ?? string.Empty,
+                    pipeName,
                     parseResult.GetValue<string>("--session-id") ?? string.Empty,
                     accessKey,
                     parseResult.GetValue<string>("--requester-name") ?? string.Empty,
@@ -127,7 +132,10 @@ public static class IServiceProviderExtensions
 
             rootCommand.TreatUnmatchedTokensAsErrors = treatUnmatchedArgsAsErrors;
 
-            var result = await rootCommand.Parse(args).InvokeAsync();
+            // Pas de fichiers de réponse : une valeur « @chemin » (nom d'organisation, de technicien)
+            // serait lue comme un fichier par ce processus, qui peut tourner en SYSTEM.
+            var parserConfiguration = new ParserConfiguration { ResponseFileTokenReplacer = null };
+            var result = await rootCommand.Parse(args, parserConfiguration).InvokeAsync();
 
             if (result == 0)
             {

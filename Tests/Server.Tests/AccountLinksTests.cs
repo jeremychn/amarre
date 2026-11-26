@@ -33,6 +33,25 @@ public class AccountLinksTests
         Assert.AreEqual(RequestBase, PublicUrl.Resolve(publicUrl, RequestBase).AbsoluteUri);
 
     [TestMethod]
+    [DataRow("https://publique.example", "https://serveur.example", "https://publique.example/")]
+    [DataRow("", "https://serveur.example", "https://serveur.example/")]
+    [DataRow("", "", RequestBase)]
+    public void Resolve_RepliSurUrlDuServeur(string publicUrl, string serverUrl, string expected) =>
+        Assert.AreEqual(expected, PublicUrl.Resolve(publicUrl, serverUrl, RequestBase).AbsoluteUri);
+
+    [TestMethod]
+    public void AttemptLimiter_PlafondParCle()
+    {
+        var limiter = new AttemptLimiter(2, TimeSpan.FromMinutes(5));
+        Assert.IsTrue(limiter.TryRecord("a"));
+        Assert.IsFalse(limiter.IsBlocked("a"));
+        Assert.IsTrue(limiter.TryRecord("a"));
+        Assert.IsTrue(limiter.IsBlocked("a"));
+        Assert.IsFalse(limiter.TryRecord("a"));
+        Assert.IsFalse(limiter.IsBlocked("b"));
+    }
+
+    [TestMethod]
     public void Resolve_CheminRelatifAjoute() =>
         Assert.AreEqual(
             "https://amarre.example/sous-dossier/Account/ResetPassword",

@@ -7,6 +7,8 @@ namespace Remotely.Desktop.UI.ViewModels.Fakes;
 
 public class FakeFileTransferViewModel : FakeBrandedViewModelBase, IFileTransferWindowViewModel
 {
+    public bool CanUploadFiles { get; } = true;
+
     public ObservableCollection<FileUpload> FileUploads { get; } = new();
 
     public string ViewerConnectionId { get; set; } = string.Empty;
