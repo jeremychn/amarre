@@ -42,8 +42,8 @@ jobs:
           dotnet publish Server/Server.csproj -c Release -o /tmp/srv -p:TypeScriptCompileBlocked=true
           cd /tmp/srv
           ASPNETCORE_HTTP_PORTS=5000 dotnet Remotely_Server.dll > /tmp/srv.log 2>&1 &
-          for i in $(seq 30); do curl -sf http://localhost:5000/api/healthcheck > /dev/null && break; sleep 2; done
-          bash $GITHUB_WORKSPACE/Utilities/test-login.sh && exit 0
+          for _ in $(seq 30); do curl -sf http://localhost:5000/api/healthcheck > /dev/null && break; sleep 2; done
+          bash "$GITHUB_WORKSPACE/Utilities/test-login.sh" && exit 0
           cat /tmp/srv.log
           grep -E 'Exception|error|fail' /tmp/srv.log | head -5 | while read -r l; do echo "::error::$l"; done
           exit 1
