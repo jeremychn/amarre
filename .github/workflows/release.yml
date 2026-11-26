@@ -17,9 +17,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Droits par job : lecture partout, écriture seulement là où l'on publie
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 jobs:
   # Tag à publier : celui poussé, ou vX.Y lu dans VERSION s'il n'existe pas encore
@@ -29,7 +29,7 @@ jobs:
       tag: ${{ steps.v.outputs.tag }}
       publish: ${{ steps.v.outputs.publish }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: v
         run: |
           tag=""; publish=false
@@ -55,10 +55,13 @@ jobs:
     needs: [version, checks]
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write # push de l'image ghcr
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
 
@@ -84,8 +87,10 @@ jobs:
       !cancelled() && (github.event_name == 'workflow_dispatch'
       || (needs.version.outputs.publish == 'true' && needs.server.result == 'success'))
     runs-on: windows-2025
+    permissions:
+      contents: write # release GitHub et tag
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # historique + tags pour comparer avec la version précédente
 
@@ -102,7 +107,7 @@ jobs:
           "PREV=$prev" >> $env:GITHUB_ENV
           exit 0
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: env.BUILD == 'True'
         with:
           dotnet-version: 10.0.x

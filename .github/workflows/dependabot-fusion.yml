@@ -12,9 +12,7 @@ on:
     workflows: [Build]
     types: [completed]
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   fusion:
@@ -24,6 +22,9 @@ jobs:
       github.event.workflow_run.actor.login == 'dependabot[bot]' &&
       startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write # fusion et suppression de la branche
+      pull-requests: write
     steps:
       - name: Fusionner si mineure ou correctif
         env:

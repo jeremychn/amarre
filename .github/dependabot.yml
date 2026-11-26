@@ -5,6 +5,8 @@
 # Délai (cooldown) : une version n'est proposée que 7 jours après sa publication, le temps qu'une version
 # compromise à la source soit repérée et retirée avant la fusion automatique. Ne joue pas sur les mises à
 # jour de sécurité.
+# Actions GitHub épinglées par SHA de commit, tag en commentaire (« @<sha> # vX.Y.Z ») : Dependabot
+# monte le SHA et le commentaire ensemble.
 #
 # Paquets et image liés à la version de .NET (net10.0, SDK 10.0.x de la CI) : pas de majeure proposée
 # (ni de mineure pour PowerShell),
