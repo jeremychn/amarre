@@ -434,13 +434,13 @@ Base de données, chaînes de connexion et port : variables d'environnement du c
 | `RemoteControlNotifyUser` | Notification au début d'une session sans surveillance |
 | `RemoteControlRequiresAuthentication` | Le viewer exige d'être connecté |
 | `EnableRemoteControlRecording` | Enregistre les sessions dans `/app/AppData/recordings` |
-| `BannedDevices` | ID, noms ou IP à bannir (désinstallation immédiate) |
+| `BannedDevices` | ID, noms ou IP à bannir (connexion refusée, ordre de désinstallation ; un agent à jour ne l'exécute que si le serveur a prouvé connaître le jeton du poste) |
 | `KnownProxies` | IP des reverse proxies autorisés à envoyer les `X-Forwarded-*` |
 | `ForceClientHttps` | Force https dans les installeurs et clients |
 | `MaxOrganizationCount` | 1 par défaut ; -1 pour plusieurs organisations |
 | `UseHttpLogging` | Journalise toutes les requêtes HTTP |
 | `Smtp*` | Envoi des e-mails (inscription, mot de passe) |
-| `PublicUrl` | Adresse publique du serveur (ex. `https://amarre.example`), base des liens des e-mails. À renseigner : vide, les liens reprennent l'en-tête `Host` de la requête, qu'un client peut choisir. Sans effet sur les agents |
+| `PublicUrl` | Adresse publique du serveur (ex. `https://amarre.example`), base des liens des e-mails et adresse inscrite dans le client portable téléchargé depuis **/deploy**. À renseigner : vide, liens et client reprennent l'en-tête `Host` de la requête, qu'un client peut choisir. Sans effet sur les agents |
 
 **API** : documentation Swagger (`/swagger`) servie seulement en développement (`ASPNETCORE_ENVIRONMENT=Development`), jamais en production. Authentification par en-tête `X-Api-Key: <ID>:<secret>` (jeton créé dans Compte → Accès API).
 
