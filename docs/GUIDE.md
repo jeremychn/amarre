@@ -439,6 +439,7 @@ Base de données, chaînes de connexion et port : variables d'environnement du c
 | `MaxOrganizationCount` | 1 par défaut ; -1 pour plusieurs organisations |
 | `UseHttpLogging` | Journalise toutes les requêtes HTTP |
 | `Smtp*` | Envoi des e-mails (inscription, mot de passe) |
+| `PublicUrl` | Adresse publique du serveur (ex. `https://amarre.example`), base des liens des e-mails. À renseigner : vide, les liens reprennent l'en-tête `Host` de la requête, qu'un client peut choisir. Sans effet sur les agents |
 
 **API** : documentation Swagger (`/swagger`) servie seulement en développement (`ASPNETCORE_ENVIRONMENT=Development`), jamais en production. Authentification par en-tête `X-Api-Key: <ID>:<secret>` (jeton créé dans Compte → Accès API).
 

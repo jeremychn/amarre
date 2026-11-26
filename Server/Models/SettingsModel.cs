@@ -18,6 +18,9 @@ public class SettingsModel
     public int MaxConcurrentUpdates { get; set; } = 10;
     public int MaxOrganizationCount { get; set; } = 1;
     public string MessageOfTheDay { get; set; } = string.Empty;
+    // Base des liens envoyés par e-mail. Sans effet sur les agents (voir ServerUrl).
+    [PublicUrl]
+    public string PublicUrl { get; set; } = string.Empty;
     public bool RedirectToHttps { get; set; } = true;
     public bool RemoteControlNotifyUser { get; set; } = true;
     public bool RemoteControlRequiresAuthentication { get; set; } = true;

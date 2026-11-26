@@ -180,6 +180,19 @@
                 <ValidationMessage For="() => Input.MessageOfTheDay" />
             </div>
             <div class="form-group">
+                <label class="control-label">URL publique</label>
+                <div class="small text-muted">
+                    Adresse du serveur vue par les utilisateurs (par exemple https://amarre.example),
+                    utilisée pour les liens des e-mails (mot de passe oublié, confirmation d'adresse).
+                    Vide : les liens reprennent l'adresse de la requête, que le navigateur ou un client
+                    malveillant peut choisir. Sans effet sur les agents.
+                </div>
+                <br />
+                <InputText @bind-Value="Input.PublicUrl" class="form-control" autocomplete="off" placeholder="https://amarre.example" />
+                <br />
+                <ValidationMessage For="() => Input.PublicUrl" />
+            </div>
+            <div class="form-group">
                 <label>Rediriger vers HTTPS</label>
                 <br />
                 <InputCheckbox @bind-Value="Input.RedirectToHttps" autocomplete="off" />

@@ -63,6 +63,29 @@ public class AgentHubTests
         caller.Verify(x => x.UninstallAgent(), Times.Once);
     }
 
+    // L'URL publique ne sert qu'aux liens : l'agent ne la reçoit jamais (pas de migration).
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task GetServerUrl_IgnoreUrlPublique()
+    {
+        var settings = await _dataService.GetSettings();
+        settings.ServerUrl = string.Empty;
+        settings.PublicUrl = "https://amarre.example";
+        await _dataService.SaveSettings(settings);
+
+        var hub = new AgentHub(
+            _dataService,
+            new Mock<IAgentHubSessionCache>().Object,
+            new Mock<IHubContext<ViewerHub>>().Object,
+            new Mock<ICircuitManager>().Object,
+            new Mock<IExpiringTokenService>().Object,
+            new Mock<IRemoteControlSessionCache>().Object,
+            new Mock<IMessenger>().Object,
+            new Mock<ILogger<AgentHub>>().Object);
+
+        Assert.AreEqual(string.Empty, await hub.GetServerUrl());
+    }
+
     // TODO: Checking of device ban should be pulled out into
     // a separate service that's better testable.
     [TestMethod]

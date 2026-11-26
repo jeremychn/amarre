@@ -1,6 +1,8 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Remotely.Server.Components.Account;
+using Remotely.Server.Models;
+using Remotely.Server.Services;
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace Remotely.Server.Tests;
 
@@ -16,8 +18,8 @@ public class AccountLinksTests
     [DataRow("https://amarre.example/sous-dossier", "https://amarre.example/sous-dossier/")]
     [DataRow("http://10.0.0.5:5000", "http://10.0.0.5:5000/")]
     [DataRow("https://amarre.example/?x=1#y", "https://amarre.example/")]
-    public void GetBaseUri_ServerUrlRenseignee(string serverUrl, string expected) =>
-        Assert.AreEqual(expected, AccountLinks.GetBaseUri(serverUrl, RequestBase).AbsoluteUri);
+    public void Resolve_UrlPubliqueRenseignee(string publicUrl, string expected) =>
+        Assert.AreEqual(expected, PublicUrl.Resolve(publicUrl, RequestBase).AbsoluteUri);
 
     [TestMethod]
     [DataRow(null)]
@@ -27,12 +29,25 @@ public class AccountLinksTests
     [DataRow("ftp://amarre.example")]
     [DataRow("javascript:alert(1)")]
     [DataRow("https://user:pass@amarre.example")]
-    public void GetBaseUri_ServerUrlAbsenteOuInvalide_AdresseDeLaRequete(string? serverUrl) =>
-        Assert.AreEqual(RequestBase, AccountLinks.GetBaseUri(serverUrl, RequestBase).AbsoluteUri);
+    public void Resolve_UrlPubliqueAbsenteOuInvalide_AdresseDeLaRequete(string? publicUrl) =>
+        Assert.AreEqual(RequestBase, PublicUrl.Resolve(publicUrl, RequestBase).AbsoluteUri);
 
     [TestMethod]
-    public void GetBaseUri_CheminRelatifAjoute() =>
+    public void Resolve_CheminRelatifAjoute() =>
         Assert.AreEqual(
             "https://amarre.example/sous-dossier/Account/ResetPassword",
-            new Uri(AccountLinks.GetBaseUri("https://amarre.example/sous-dossier", RequestBase), "Account/ResetPassword").AbsoluteUri);
+            new Uri(PublicUrl.Resolve("https://amarre.example/sous-dossier", RequestBase), "Account/ResetPassword").AbsoluteUri);
+
+    [TestMethod]
+    [DataRow("", true)]
+    [DataRow("https://amarre.example", true)]
+    [DataRow("amarre.example", false)]
+    [DataRow("ftp://amarre.example", false)]
+    public void Reglage_Validation(string publicUrl, bool expected)
+    {
+        var settings = new SettingsModel { PublicUrl = publicUrl };
+        var context = new ValidationContext(settings) { MemberName = nameof(SettingsModel.PublicUrl) };
+        Assert.AreEqual(expected, Validator.TryValidateProperty(settings.PublicUrl, context, []));
+    }
+
 }
