@@ -8,6 +8,7 @@ using System.IO;
 using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using System.Text;
 using System.Text.Json;
 
 namespace Remotely.Agent.Services;
@@ -121,7 +122,7 @@ public class ConfigService : IConfigService
         lock (_fileLock)
         {
             _connectionInfo = connectionInfo;
-            File.WriteAllText("ConnectionInfo.json", JsonSerializer.Serialize(connectionInfo));
+            WriteRestricted("ConnectionInfo.json", JsonSerializer.Serialize(connectionInfo));
             RestrictAccess("ConnectionInfo.json");
         }
     }
@@ -151,8 +152,47 @@ public class ConfigService : IConfigService
         }
     }
 
+    // Un fichier absent est créé directement avec les droits restreints (pas de fenêtre où il
+    // porterait les droits hérités) ; un fichier existant garde les siens, resserrés à la lecture.
+    private static void WriteRestricted(string path, string content)
+    {
+        var bytes = Encoding.UTF8.GetBytes(content);
+        if (OperatingSystem.IsWindows() && Environment.IsPrivilegedProcess && !File.Exists(path))
+        {
+            using var stream = new FileInfo(path).Create(
+                FileMode.CreateNew,
+                FileSystemRights.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                FileOptions.None,
+                GetRestrictedSecurity());
+            stream.Write(bytes);
+            return;
+        }
+
+        var options = new FileStreamOptions
+        {
+            Mode = FileMode.Create,
+            Access = FileAccess.Write,
+            Share = FileShare.None,
+        };
+        if (!OperatingSystem.IsWindows())
+        {
+            // Appliqué seulement à la création du fichier.
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        }
+        using var fileStream = new FileStream(path, options);
+        fileStream.Write(bytes);
+    }
+
     [SupportedOSPlatform("windows")]
     private static void RestrictAccessWindows(string path)
+    {
+        new FileInfo(path).SetAccessControl(GetRestrictedSecurity());
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static FileSecurity GetRestrictedSecurity()
     {
         var security = new FileSecurity();
         security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
@@ -163,6 +203,6 @@ public class ConfigService : IConfigService
                 FileSystemRights.FullControl,
                 AccessControlType.Allow));
         }
-        new FileInfo(path).SetAccessControl(security);
+        return security;
     }
 }

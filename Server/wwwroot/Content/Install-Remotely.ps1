@@ -61,6 +61,61 @@ function Write-Log($Message) {
 	}
 	"$((Get-Date).ToString()) - $Message" | Out-File -FilePath $LogPath -Append
 }
+# Droits SYSTEM et Administrateurs seulement, sans héritage, posés dès la création :
+# pas de moment où l'élément existe avec les droits hérités du dossier parent.
+function New-RestrictedSecurity([switch]$Directory) {
+	if ($Directory) {
+		$Security = New-Object System.Security.AccessControl.DirectorySecurity
+		$Inheritance = [System.Security.AccessControl.InheritanceFlags]"ContainerInherit, ObjectInherit"
+	}
+	else {
+		$Security = New-Object System.Security.AccessControl.FileSecurity
+		$Inheritance = [System.Security.AccessControl.InheritanceFlags]::None
+	}
+	$Security.SetAccessRuleProtection($true, $false)
+	foreach ($Sid in "S-1-5-18", "S-1-5-32-544") {
+		$Rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+			(New-Object System.Security.Principal.SecurityIdentifier($Sid)),
+			[System.Security.AccessControl.FileSystemRights]::FullControl,
+			$Inheritance,
+			[System.Security.AccessControl.PropagationFlags]::None,
+			[System.Security.AccessControl.AccessControlType]::Allow)
+		$Security.AddAccessRule($Rule)
+	}
+	return $Security
+}
+function New-RestrictedDirectory($Path) {
+	$Security = New-RestrictedSecurity -Directory
+	if ($PSVersionTable.PSEdition -eq "Core") {
+		[System.IO.FileSystemAclExtensions]::Create([System.IO.DirectoryInfo]::new($Path), $Security)
+	}
+	else {
+		[System.IO.Directory]::CreateDirectory($Path, $Security) | Out-Null
+	}
+}
+function Write-RestrictedFile($Path, $Content) {
+	$Bytes = (New-Object System.Text.UTF8Encoding($false)).GetBytes($Content)
+	if (Test-Path -Path $Path) {
+		# Fichier d'une installation précédente : resserrer avant d'écrire (l'écriture garde ses droits)
+		& icacls.exe "$Path" /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" | Out-Null
+		[System.IO.File]::WriteAllBytes($Path, $Bytes)
+		return
+	}
+	$Security = New-RestrictedSecurity
+	$Rights = [System.Security.AccessControl.FileSystemRights]::Write
+	if ($PSVersionTable.PSEdition -eq "Core") {
+		$Stream = [System.IO.FileSystemAclExtensions]::Create([System.IO.FileInfo]::new($Path), [System.IO.FileMode]::CreateNew, $Rights, [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::None, $Security)
+	}
+	else {
+		$Stream = New-Object System.IO.FileStream($Path, [System.IO.FileMode]::CreateNew, $Rights, [System.IO.FileShare]::None, 4096, [System.IO.FileOptions]::None, $Security)
+	}
+	try {
+		$Stream.Write($Bytes, 0, $Bytes.Length)
+	}
+	finally {
+		$Stream.Dispose()
+	}
+}
 function Do-Exit() {
 	Write-Log "Exiting..."
 	Start-Sleep -Seconds 3
@@ -160,8 +215,7 @@ function Install-Remotely {
 
 	# Dossier de travail propre à cette installation : nom aléatoire, réservé à SYSTEM et aux Administrateurs
 	$WorkDir = Join-Path $env:TEMP ("amarre-" + [System.Guid]::NewGuid().ToString("N"))
-	New-Item -ItemType Directory -Path $WorkDir | Out-Null
-	& icacls.exe "$WorkDir" /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" | Out-Null
+	New-RestrictedDirectory $WorkDir
 	$ZipPath = Join-Path $WorkDir "Remotely-Win-$Platform.zip"
 
 	if ($Path) {
@@ -192,9 +246,8 @@ function Install-Remotely {
 	Expand-Archive -Path $ZipPath -DestinationPath "$InstallPath" -Force
 	Remove-Item -Path $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
 
-	New-Item -ItemType File -Path "$InstallPath\ConnectionInfo.json" -Value (ConvertTo-Json -InputObject $ConnectionInfo) -Force
 	# Contient le jeton du poste : SYSTEM et Administrateurs seulement
-	& icacls.exe "$InstallPath\ConnectionInfo.json" /inheritance:r /grant:r "*S-1-5-18:F" "*S-1-5-32-544:F" | Out-Null
+	Write-RestrictedFile "$InstallPath\ConnectionInfo.json" (ConvertTo-Json -InputObject $ConnectionInfo)
 
 	New-Item -ItemType File -Path "$InstallPath\etag.txt" -Value $ETag -Force
 
