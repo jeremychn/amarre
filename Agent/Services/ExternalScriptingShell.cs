@@ -123,6 +123,13 @@ public class ExternalScriptingShell : IExternalScriptingShell
             _lastInputID = Guid.NewGuid().ToString();
             
             ShellProcess.StandardInput.Write(input + _lineEnding);
+            if (_shell == ScriptingShell.WinPS)
+            {
+                // Windows PowerShell lisant l'entrée standard n'exécute un bloc sur plusieurs lignes
+                // (foreach, if, tableau, pipeline continué) qu'après une ligne vide : sans elle, le script
+                // restait en attente jusqu'au délai.
+                ShellProcess.StandardInput.Write(_lineEnding);
+            }
             ShellProcess.StandardInput.Write("echo " + _lastInputID + _lineEnding);
 
             var result = await Task.WhenAny(

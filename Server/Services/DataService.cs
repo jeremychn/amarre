@@ -28,6 +28,12 @@ public interface IDataService
 
     Task<Result> AddOrUpdateSavedScript(SavedScript script, string userId);
 
+    /// <summary>
+    /// Ajoute les scripts de <see cref="ScriptLibrary"/> absents du dossier de la bibliothèque, publics,
+    /// créés par cet utilisateur ; renvoie le nombre de scripts ajoutés (rien n'est écrasé).
+    /// </summary>
+    Task<Result<int>> InstallScriptLibrary(string userId);
+
     Task AddOrUpdateScriptSchedule(ScriptSchedule schedule);
 
     Task<Result<ScriptResult>> AddScriptResult(ScriptResultDto dto);
@@ -448,6 +454,43 @@ public class DataService : IDataService
 
         await dbContext.SaveChangesAsync();
         return Result.Ok();
+    }
+
+    public async Task<Result<int>> InstallScriptLibrary(string userId)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        var user = await dbContext.Users.FindAsync(userId);
+        if (user is null)
+        {
+            return Result.Fail<int>("Utilisateur introuvable.");
+        }
+
+        var existing = await dbContext.SavedScripts
+            .Where(x => x.OrganizationID == user.OrganizationID && x.FolderPath == ScriptLibrary.FolderPath)
+            .Select(x => x.Name)
+            .ToListAsync();
+
+        var added = 0;
+        foreach (var script in ScriptLibrary.All.Where(x => !existing.Contains(x.Name)))
+        {
+            dbContext.SavedScripts.Add(new SavedScript
+            {
+                Name = script.Name,
+                // Saut de ligne final : avec l'entrée standard de l'agent, une ligne vide termine les blocs
+                // sur plusieurs lignes de Windows PowerShell (agents antérieurs à la 1.27, qui ne l'ajoutent pas).
+                Content = script.Content + Environment.NewLine,
+                Shell = script.Shell,
+                FolderPath = ScriptLibrary.FolderPath,
+                IsPublic = true,
+                CreatorId = user.Id,
+                OrganizationID = user.OrganizationID,
+            });
+            added++;
+        }
+
+        await dbContext.SaveChangesAsync();
+        return Result.Ok(added);
     }
 
     public async Task AddOrUpdateScriptSchedule(ScriptSchedule schedule)

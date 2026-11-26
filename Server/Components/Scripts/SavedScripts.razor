@@ -144,6 +144,13 @@
     <div class="tree-view-wrapper-grid h-100 pb-3">
         <div>
             <h5>Scripts enregistrés</h5>
+            @if (User?.IsAdministrator == true)
+            {
+                <button type="button" class="btn btn-sm btn-outline-secondary mb-1" @onclick="InstallLibrary"
+                        title="Ajoute les scripts prêts à l'emploi absents du dossier « Bibliothèque Amarre » (rien n'est écrasé)">
+                    <i class="oi oi-book"></i> Ajouter la bibliothèque Amarre
+                </button>
+            }
             <div>
                 <input type="checkbox" @bind="ParentPage.ShowOnlyMyScripts" />
                 <span class="align-top">Seulement les miens</span>

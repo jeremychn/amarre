@@ -94,6 +94,24 @@ public partial class SavedScripts : AuthComponentBase
         _alertMessage = "Script enregistré.";
     }
 
+    private async Task InstallLibrary()
+    {
+        EnsureUserSet();
+        var result = await DataService.InstallScriptLibrary(User.Id);
+        if (!result.IsSuccess)
+        {
+            ToastService.ShowToast2(result.Reason, ToastType.Warning);
+            return;
+        }
+
+        await ParentPage.RefreshScripts();
+        ToastService.ShowToast2(
+            result.Value == 0
+                ? "La bibliothèque est déjà complète."
+                : $"{result.Value} script(s) ajouté(s) dans « {ScriptLibrary.FolderPath} ».",
+            ToastType.Success);
+    }
+
     private void CreateNew()
     {
         _selectedScript = new()
