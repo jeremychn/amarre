@@ -13,20 +13,23 @@ public class CustomBinariesController(
     IEmbeddedServerDataProvider _embeddedData) : ControllerBase
 {
     [HttpGet("win-x86/desktop/{organizationId}")]
-    public async Task<IActionResult> GetWinX86Desktop(string organizationId)
-    {
-        var embeddedData = await GetEmbeddedData(organizationId);
-        var filePath = Path.Combine(_hostingEnvironment.ContentRootPath, "AppData", "Win-x86", "Remotely_Desktop.exe");
-        var fileName = _embeddedData.GetEncodedFileName(filePath, embeddedData);
-        var rs = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return File(rs, "application/octet-stream", fileName);
-    }
+    public Task<IActionResult> GetWinX86Desktop(string organizationId) =>
+        GetDesktop("Win-x86", organizationId);
 
     [HttpGet("win-x64/desktop/{organizationId}")]
-    public async Task<IActionResult> GetWinX64Desktop(string organizationId)
+    public Task<IActionResult> GetWinX64Desktop(string organizationId) =>
+        GetDesktop("Win-x64", organizationId);
+
+    private async Task<IActionResult> GetDesktop(string platformFolder, string organizationId)
     {
+        // Page anonyme : l'ID est recopié dans le nom du fichier, seul celui d'une organisation existante passe.
+        if (!(await _dataService.GetOrganizationNameById(organizationId)).IsSuccess)
+        {
+            return NotFound();
+        }
+
         var embeddedData = await GetEmbeddedData(organizationId);
-        var filePath = Path.Combine(_hostingEnvironment.ContentRootPath, "AppData", "Win-x64", "Remotely_Desktop.exe");
+        var filePath = Path.Combine(_hostingEnvironment.ContentRootPath, "AppData", platformFolder, "Remotely_Desktop.exe");
         var fileName = _embeddedData.GetEncodedFileName(filePath, embeddedData);
         var rs = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
         return File(rs, "application/octet-stream", fileName);
@@ -44,9 +47,10 @@ public class CustomBinariesController(
             organizationId = null;
         }
 
+        // Adresse inscrite dans le client : l'URL publique si elle est renseignée, sinon l'hôte de la requête.
         var settings = await _dataService.GetSettings();
         var effectiveScheme = settings.ForceClientHttps ? "https" : Request.Scheme;
-        var serverUrl = $"{effectiveScheme}://{Request.Host}";
-        return new EmbeddedServerData(new Uri(serverUrl), organizationId);
+        var serverUrl = PublicUrl.Resolve(settings.PublicUrl, $"{effectiveScheme}://{Request.Host}");
+        return new EmbeddedServerData(serverUrl, organizationId);
     }
 }
