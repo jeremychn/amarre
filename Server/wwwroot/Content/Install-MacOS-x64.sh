@@ -48,9 +48,14 @@ su - $Owner -c "brew install jq"
 
 if [ -f "$InstallDir/ConnectionInfo.json" ]; then
     # Fichier lisible par root seulement : lu ici, jq lancé par le propriétaire de Homebrew
+    # (jq de Homebrew : absent du PATH de root quand l'agent lance la mise à jour, et modifiable
+    # par ce propriétaire, donc jamais exécuté par root).
     SavedGUID=`cat "$InstallDir/ConnectionInfo.json" | su - $Owner -c "jq -r '.DeviceID'"`
+    SavedHost=$(su - "$Owner" -c "jq -r '.Host // empty'" < "$InstallDir/ConnectionInfo.json")
     # Mise à jour vers le même serveur : garder le jeton, sinon le poste ne se fait plus reconnaître.
-    SavedToken=`cat "$InstallDir/ConnectionInfo.json" | jq -r --arg h "$HostName" 'if (.Host // "" | rtrimstr("/")) == ($h | rtrimstr("/")) then (.ServerVerificationToken // "") else "" end'`
+    if [ "${SavedHost%/}" = "${HostName%/}" ]; then
+        SavedToken=$(su - "$Owner" -c "jq -r '.ServerVerificationToken // empty'" < "$InstallDir/ConnectionInfo.json")
+    fi
     if [[ "$SavedGUID" != "null" && -n "$SavedGUID" ]]; then
         GUID="$SavedGUID"
     fi
