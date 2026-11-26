@@ -1,15 +1,19 @@
 ﻿@page "/get-support/{deviceId?}"
 @using System.ComponentModel.DataAnnotations
+@using Remotely.Server.RateLimiting
 
 @inject IDataService DataService
 @inject IEmailSenderEx EmailSender
+@inject IGetSupportRateLimiter RateLimiter
+@inject IHttpContextAccessor HttpContextAccessor
+@inject ILogger<GetSupport> Logger
 
 
 @if (string.IsNullOrWhiteSpace(DeviceId))
 {
     <h3 class="mb-3">Demander de l'aide</h3>
     <p>
-        Device ID is missing.  Please use a valid shortcut to the support page, which will include the device ID.
+        L'ID de l'appareil est absent. Utilisez le lien d'assistance fourni par votre service informatique : il contient l'ID de l'appareil.
     </p>
 }
 else
@@ -62,6 +66,7 @@ else
 @code {
     private string? _statusMessage;
     private string _alertClass = "alert-success";
+    private string? _remoteIp;
 
     [Parameter]
     public string? DeviceId { get; init; }
@@ -72,6 +77,8 @@ else
     protected override void OnInitialized()
     {
         Input ??= new();
+        // Page interactive : requête du circuit (en-têtes de proxy déjà appliqués).
+        _remoteIp = HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
     }
 
     private void CloseAlert()
@@ -86,11 +93,29 @@ else
             return;
         }
 
+        if (string.IsNullOrWhiteSpace(_remoteIp))
+        {
+            Logger.LogWarning("Get support request without a client IP address: only the per-device limit applies.");
+        }
+
+        // Avant la recherche de l'appareil : limite aussi les essais d'ID.
+        if (!RateLimiter.TryAcquireForIp(_remoteIp))
+        {
+            ShowTooManyRequests();
+            return;
+        }
+
         var deviceResult = await DataService.GetDevice(DeviceId);
         if (!deviceResult.IsSuccess)
         {
             _alertClass = "alert-danger";
             _statusMessage = "Appareil introuvable.";
+            return;
+        }
+
+        if (!RateLimiter.TryAcquireForDevice(deviceResult.Value.ID))
+        {
+            ShowTooManyRequests();
             return;
         }
 
@@ -124,6 +149,12 @@ else
         _statusMessage = "Demande reçue. Quelqu'un vous recontacte rapidement.";
     }
 
+    private void ShowTooManyRequests()
+    {
+        _alertClass = "alert-warning";
+        _statusMessage = "Trop de demandes en peu de temps. Réessayez plus tard.";
+    }
+
     private class InputModel
     {
         [StringLength(150)]
@@ -134,6 +165,7 @@ else
         [EmailAddress]
         public string Email { get; set; } = string.Empty;
 
+        [StringLength(50)]
         public string? Phone { get; set; }
         public bool ChatResponseOk { get; set; }
     }

@@ -218,6 +218,8 @@ services.AddRateLimiter(options =>
                 settings.MaxConcurrentUpdates;
     });
 });
+services.AddSingleton<Remotely.Server.RateLimiting.IGetSupportRateLimiter, Remotely.Server.RateLimiting.GetSupportRateLimiter>();
+services.AddHttpContextAccessor();
 services.AddHttpClient();
 services.AddLogging();
 services.AddScoped<IEmailSender, EmailSender>();
