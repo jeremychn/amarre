@@ -46,7 +46,6 @@ public class AgentHub : Hub<IAgentHubClient>
     }
 
     private const string AgentChallengeKey = "AgentChallenge";
-    private const string AdmittedWithoutTokenKey = "AdmittedWithoutToken";
 
     // TODO: Replace with new invoke capability in .NET 7 in ScriptingController.
     public static IMemoryCache ApiScriptResults { get; } = new MemoryCache(new MemoryCacheOptions());
@@ -244,8 +243,9 @@ public class AgentHub : Hub<IAgentHubClient>
     }
 
     // Le jeton est le seul secret de l'agent : sans lui, connaître un DeviceID suffit pour prendre la place du poste.
-    // Exigé dès que le poste a tourné avec un agent qui l'envoie (1.16+) ; les anciens agents passent comme avant.
-    // ponytail: verrou déduit de la version d'agent en base (pas de migration) ; colonne dédiée si un agent < 1.16 doit revenir sur un poste.
+    // Poste déjà enrôlé (jeton en base) : seule la preuve sur le défi de cette connexion est admise (agents 1.19+),
+    // quelle que soit la version. Plus d'exception pour les agents antérieurs ni de jeton en clair.
+    // Poste inconnu ou sans jeton en base : admis, il pose son jeton à la première connexion (SetServerVerificationToken).
     private async Task<bool> CheckAgentToken(DeviceClientDto device)
     {
         var stored = await _dataService.GetDevice(device.ID);
@@ -254,7 +254,7 @@ public class AgentHub : Hub<IAgentHubClient>
             return true;
         }
 
-        // Agent 1.19+ : preuve signée sur le défi de cette connexion (usage unique).
+        // Preuve signée sur le défi de cette connexion (usage unique).
         if (Context.Items.Remove(AgentChallengeKey, out var challenge) &&
             challenge is string serverChallenge &&
             AgentTokenProof.AreEqual(AgentTokenProof.FromAgent(stored.Value.ServerVerificationToken, serverChallenge), device.ServerVerificationToken))
@@ -262,35 +262,16 @@ public class AgentHub : Hub<IAgentHubClient>
             return true;
         }
 
-        // Agents 1.16 à 1.18 : jeton en clair.
-        if (AgentTokenProof.AreEqual(stored.Value.ServerVerificationToken, device.ServerVerificationToken))
-        {
-            return true;
-        }
-
-        if (string.IsNullOrEmpty(device.ServerVerificationToken) && !SendsAgentToken(stored.Value.AgentVersion))
-        {
-            // Ancien agent mis à jour (l'installeur vidait le jeton) : le nouveau jeton qu'il posera remplace l'ancien.
-            Context.Items[AdmittedWithoutTokenKey] = true;
-            return true;
-        }
-
         _logger.LogWarning(
             "Jeton d'agent absent ou faux pour {DeviceId} ({DeviceName}, {PublicIp}, agent {AgentVersion}) : connexion refusée. " +
             (string.IsNullOrEmpty(device.ServerVerificationToken)
-                ? "Agent réinstallé sans son jeton : supprimer l'appareil dans l'interface le laisse revenir."
-                : "Agent avec un autre jeton : ne pas seulement supprimer l'appareil (le poste resterait bloqué) ; " +
-                  "sur le poste, effacer ServerVerificationToken dans ConnectionInfo.json, redémarrer le service, puis supprimer l'appareil."),
+                ? "Agent sans jeton (réinstallé, ou antérieur à la 1.19), à réinstaller : supprimer l'appareil dans l'interface, " +
+                  "puis installer un agent à jour sur le poste."
+                : "Agent avec un autre jeton, ou antérieur à la 1.19 (jeton en clair, plus admis) : ne pas seulement supprimer " +
+                  "l'appareil (le poste resterait bloqué) ; sur le poste, effacer ServerVerificationToken dans ConnectionInfo.json " +
+                  "ou réinstaller un agent à jour, redémarrer le service, puis supprimer l'appareil."),
             device.ID, device.DeviceName, device.PublicIP, device.AgentVersion);
         return false;
-    }
-
-    private static bool SendsAgentToken(string? agentVersion)
-    {
-        // Agents numérotés X.Y depuis la 1.15 ; avant, version datée (2026.x).
-        return Version.TryParse(agentVersion, out var version) &&
-            version.Major < 2000 &&
-            version >= new Version(1, 16);
     }
 
     public string GetAgentChallenge()
@@ -409,12 +390,6 @@ public class AgentHub : Hub<IAgentHubClient>
     {
         var settings = await _dataService.GetSettings();
         return settings.ServerUrl;
-    }
-
-    // Agents antérieurs à la 1.19 uniquement : les récents passent par ProveServer.
-    public string GetServerVerificationToken()
-    {
-        return $"{Device?.ServerVerificationToken}";
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
@@ -546,9 +521,7 @@ public class AgentHub : Hub<IAgentHubClient>
     public void SetServerVerificationToken(string verificationToken)
     {
         // Un jeton déjà posé ne se remplace pas : sinon un imposteur coupe le vrai poste.
-        // Sauf connexion admise sans jeton (ancien agent) : elle ne prouvait déjà rien, sans ça le poste se bloque.
-        if (Device is null ||
-            (!string.IsNullOrEmpty(Device.ServerVerificationToken) && !Context.Items.Remove(AdmittedWithoutTokenKey)))
+        if (Device is null || !string.IsNullOrEmpty(Device.ServerVerificationToken))
         {
             return;
         }

@@ -224,16 +224,22 @@ public class AgentHubTests
             return CreateHub(new AgentHubSessionCache(), out _).DeviceCameOnline(dto);
         }
 
-        // Poste encore en agent daté : un ancien agent sans jeton passe comme avant, un faux jeton jamais.
+        // Jeton en base : plus d'exception pour un ancien agent sans jeton, quelle que soit la version en base.
         await SetAgentVersion(device.ID, "2026.10.15.1721");
-        Assert.IsTrue(await Connect("2026.10.15.1721", ""));
+        Assert.IsFalse(await Connect("2026.10.15.1721", ""));
         Assert.IsFalse(await Connect("1.16", "faux"));
 
-        // Poste passé en 1.16 : le jeton est exigé.
         await SetAgentVersion(device.ID, "1.16.0.0");
         Assert.IsFalse(await Connect("2026.10.15.1721", ""));
         Assert.IsFalse(await Connect("1.16.0.0", "faux"));
-        Assert.IsTrue(await Connect("1.16.0.0", "jeton-du-poste"));
+        // Agents 1.16 à 1.18 : le jeton en clair n'est plus admis, seule la preuve sur le défi passe.
+        Assert.IsFalse(await Connect("1.16.0.0", "jeton-du-poste"));
+
+        var hub = CreateHub(new AgentHubSessionCache(), out _);
+        var dto = device.ToDto();
+        dto.AgentVersion = "1.21.0.0";
+        dto.ServerVerificationToken = AgentTokenProof.FromAgent("jeton-du-poste", hub.GetAgentChallenge());
+        Assert.IsTrue(await hub.DeviceCameOnline(dto));
     }
 
     [TestMethod]
@@ -296,9 +302,10 @@ public class AgentHubTests
 
     [TestMethod]
     [DoNotParallelize]
-    public async Task SetServerVerificationToken_AncienAgentMisAJour_RemplaceLeJeton()
+    public async Task DeviceCameOnline_AncienAgentSansJeton_RefuseEtJetonGarde()
     {
-        // Agent daté mis à jour : l'installeur avait vidé son jeton, il en pose un nouveau.
+        // Poste enrôlé, ancien agent daté en base : l'exception qui l'admettait sans jeton (et le laissait
+        // poser un nouveau jeton) est retirée.
         var device = _testData.Org1Device1;
         device.Drives = [];
         await _dataService.AddOrUpdateDevice(device.ToDto());
@@ -307,18 +314,41 @@ public class AgentHubTests
 
         var hub = CreateHub(new AgentHubSessionCache(), out _);
         var dto = device.ToDto();
-        dto.AgentVersion = "1.20.0.0";
+        dto.AgentVersion = "2026.10.19.1707";
         dto.ServerVerificationToken = "";
-        Assert.IsTrue(await hub.DeviceCameOnline(dto));
+        Assert.IsFalse(await hub.DeviceCameOnline(dto));
 
-        hub.SetServerVerificationToken("nouveau-jeton");
         hub.SetServerVerificationToken("imposteur");
-        Assert.AreEqual("nouveau-jeton", (await _dataService.GetDevice(device.ID)).Value?.ServerVerificationToken);
+        Assert.AreEqual("ancien-jeton", (await _dataService.GetDevice(device.ID)).Value?.ServerVerificationToken);
 
-        // Reconnexion suivante en 1.20 : la preuve sur le nouveau jeton passe.
+        // Le vrai poste, à jour, passe avec sa preuve.
         var next = CreateHub(new AgentHubSessionCache(), out _);
-        dto.ServerVerificationToken = AgentTokenProof.FromAgent("nouveau-jeton", next.GetAgentChallenge());
+        dto.AgentVersion = "1.21.0.0";
+        dto.ServerVerificationToken = AgentTokenProof.FromAgent("ancien-jeton", next.GetAgentChallenge());
         Assert.IsTrue(await next.DeviceCameOnline(dto));
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
+    public async Task DeviceCameOnline_PosteSupprimePuisReinstalle_Enrole()
+    {
+        // Poste réinstallé (jeton perdu) : refusé, puis accepté une fois l'appareil supprimé dans l'interface.
+        var device = _testData.Org1Device1;
+        device.Drives = [];
+        await _dataService.AddOrUpdateDevice(device.ToDto());
+        _dataService.SetServerVerificationToken(device.ID, "jeton-perdu");
+
+        var dto = device.ToDto();
+        dto.AgentVersion = "1.24.0.0";
+        dto.ServerVerificationToken = "";
+        Assert.IsFalse(await CreateHub(new AgentHubSessionCache(), out _).DeviceCameOnline(dto));
+
+        _dataService.RemoveDevices([device.ID]);
+
+        var hub = CreateHub(new AgentHubSessionCache(), out _);
+        Assert.IsTrue(await hub.DeviceCameOnline(dto));
+        hub.SetServerVerificationToken("nouveau-jeton");
+        Assert.AreEqual("nouveau-jeton", (await _dataService.GetDevice(device.ID)).Value?.ServerVerificationToken);
     }
 
     private async Task SetAgentVersion(string deviceId, string agentVersion)
