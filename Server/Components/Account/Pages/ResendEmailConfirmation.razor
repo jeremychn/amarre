@@ -11,6 +11,7 @@
 @inject IEmailSender<RemotelyUser> EmailSender
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject IDataService DataService
 
 <PageTitle>Renvoyer l'e-mail de confirmation</PageTitle>
 
@@ -56,8 +57,11 @@
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
+        var settings = await DataService.GetSettings();
+        var callbackUrl = AccountLinks.Build(
+            NavigationManager,
+            settings.ServerUrl,
+            "Account/ConfirmEmail",
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
         await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
 
