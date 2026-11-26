@@ -47,8 +47,8 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
     {
         await SendEmailAsync(
             email,
-            "Remotely Account Confirmation",
-            "Please confirm your Remotely account by clicking the following link: " +
+            "Confirmez votre adresse e-mail",
+            "Veuillez confirmer votre compte en cliquant sur le lien suivant : " +
             $"<a href=\"{confirmationLink}\">{confirmationLink}</a>",
             user.OrganizationID);
     }
@@ -116,8 +116,8 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
     {
         await SendEmailAsync(
             email,
-            "Remotely Password Reset",
-            $"A password reset code has been requested for your account.  Reset Code: {resetCode}",
+            "Réinitialisez votre mot de passe",
+            $"Une réinitialisation du mot de passe a été demandée pour votre compte. Code de réinitialisation : {resetCode}",
             user.OrganizationID);
     }
 
@@ -125,9 +125,9 @@ public class EmailSenderEx : IEmailSenderEx, IEmailSender<RemotelyUser>
     {
         await SendEmailAsync(
             email,
-            "Remotely Password Reset",
-            "A password reset has been requested for your account.  If this was not requested by you, you can ignore this email.<br/><br/>" +
-            "Otherwise, please follow this link to reset your password: " +
+            "Réinitialisez votre mot de passe",
+            "Une réinitialisation du mot de passe a été demandée pour votre compte. Si vous n'en êtes pas à l'origine, ignorez cet e-mail.<br/><br/>" +
+            "Sinon, suivez ce lien pour réinitialiser votre mot de passe : " +
             $"<a href=\"{resetLink}\">{resetLink}</a>",
             user.OrganizationID);
     }

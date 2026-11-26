@@ -114,14 +114,14 @@ public class ScriptResultsController : ControllerBase
                     static string H(string? value) => System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
 
                     await _emailSender.SendEmailAsync(savedScript.SendErrorEmailTo,
-                        "Script Run Alert",
-                        $"An alert was triggered while running script {H(savedScript.Name)} on device {H(device.DeviceName)}. <br /><br />" +
-                            $"Device ID: {H(device.ID)} <br /> " +
-                            $"Device Name: {H(device.DeviceName)} <br /> " +
-                            $"Device Alias: {H(device.Alias)} <br /> " +
-                            $"Device Group (if any): {H(device.DeviceGroup?.Name)} <br /> " +
+                        "Alerte d'exécution de script",
+                        $"Une alerte a été déclenchée pendant l'exécution du script {H(savedScript.Name)} sur l'appareil {H(device.DeviceName)}. <br /><br />" +
+                            $"ID de l'appareil : {H(device.ID)} <br /> " +
+                            $"Nom de l'appareil : {H(device.DeviceName)} <br /> " +
+                            $"Alias de l'appareil : {H(device.Alias)} <br /> " +
+                            $"Groupe de l'appareil (s'il y en a un) : {H(device.DeviceGroup?.Name)} <br /> " +
 
-                            $"Error Output: <br /> <br /> " +
+                            $"Sortie d'erreur : <br /> <br /> " +
                             $"{string.Join("<br /> <br />", errorOut.Select(H))}");
                 }
             }
