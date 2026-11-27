@@ -1,4 +1,5 @@
 using Remotely.Server.Extensions;
+using Microsoft.AspNetCore.DataProtection;
 using Bitbound.SimpleMessenger;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -38,6 +39,15 @@ services.Configure<ApplicationOptions>(
 var appOptions = configuration
     .GetSection(ApplicationOptions.SectionKey)
     .Get<ApplicationOptions>();
+
+// Clés DataProtection sur un volume (fixé par l'image Docker) : sinon, en utilisateur non-root, elles
+// iraient dans le HOME de l'utilisateur et seraient perdues à chaque recréation du conteneur (déconnexions).
+if (!string.IsNullOrWhiteSpace(appOptions?.DataProtectionKeyDir))
+{
+    services
+        .AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(appOptions.DataProtectionKeyDir));
+}
 
 services
     .AddRazorComponents()

@@ -104,19 +104,23 @@ docker build -f Server/Dockerfile -t amarre:X.Y .
 ```bash
 DATA=/srv/remotely                              # à adapter
 IMG=ghcr.io/jeremychn/amarre:X.Y           # méthode B : amarre:X.Y
-mkdir -p $DATA/content $DATA/keys
+mkdir -p $DATA/content
 
 # Scripts Install-* : copiés depuis l'image (valable pour les deux méthodes)
 docker create --name remotely-tmp $IMG
 docker cp remotely-tmp:/app/wwwroot/Content/. $DATA/content/
 docker rm remotely-tmp
+
+# L'application tourne en utilisateur non-root (UID 1654) : les dossiers de données doivent lui appartenir.
+sudo chown -R 1654:1654 $DATA
 ```
 
 | Dossier hôte | Dans le conteneur | Contenu |
 |---|---|---|
-| `$DATA` | `/app/AppData` | Base SQLite, logs, enregistrements |
+| `$DATA` | `/app/AppData` | Base SQLite, logs, enregistrements, **clés de session** (`DataProtection-Keys`) |
 | `$DATA/content` | `/app/wwwroot/Content` | Agents et installeurs servis aux postes |
-| `$DATA/keys` | `/root/.aspnet/DataProtection-Keys` | Clés de session (sinon déconnexion à chaque redémarrage) |
+
+Les clés de session sont rangées dans `$DATA/DataProtection-Keys` (dans le volume `AppData`) : plus de volume `keys` séparé. Sans elles, les sessions seraient invalidées à chaque recréation du conteneur.
 
 Les agents s'ajoutent dans `content` à l'étape [§5](#5-publier-et-déployer-les-agents). Ce dossier masque celui de l'image : les scripts `Install-*` doivent y être aussi (copiés ci-dessus, et inclus dans `Content.zip`).
 
@@ -133,9 +137,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - /srv/remotely:/app/AppData                      # = $DATA
+      - /srv/remotely:/app/AppData                      # = $DATA (doit appartenir à l'UID 1654)
       - /srv/remotely/content:/app/wwwroot/Content
-      - /srv/remotely/keys:/root/.aspnet/DataProtection-Keys
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_HTTP_PORTS=5000
@@ -319,6 +322,16 @@ Changer le secret (bouton **Changer**) oblige à recouper les déploiements : le
 ## 7. Mettre à jour le serveur
 
 Mêmes deux méthodes qu'à l'installation ([§3](#3-installer-le-serveur-première-fois)).
+
+> **Migration vers le conteneur non-root (une seule fois).** Depuis cette version, l'application tourne en utilisateur **non-root** (UID 1654). Un volume de données existant appartient à root : le conteneur ne pourra pas y écrire (« attempt to write a readonly database ») tant qu'on ne l'a pas donné à l'application. Avant de relancer :
+>
+> 1. `docker compose down` (ou arrêter le conteneur).
+> 2. Conserver les clés de session existantes (sinon tout le monde est déconnecté une fois) : `sudo mkdir -p /srv/remotely/DataProtection-Keys && sudo cp -a /srv/remotely/keys/. /srv/remotely/DataProtection-Keys/ 2>/dev/null || true` (si un volume `keys` existait).
+> 3. `sudo chown -R 1654:1654 /srv/remotely`
+> 4. Retirer du `docker-compose.yml` la ligne de volume `.../keys:/root/.aspnet/DataProtection-Keys` (les clés sont désormais dans le volume `AppData`).
+> 5. `docker compose up -d` puis vérifier les journaux.
+>
+> Sans l'étape 2, les clés sont régénérées : les utilisateurs se reconnectent une fois, sans autre conséquence.
 
 ### 7.1 Méthode A : image depuis GitHub (recommandé)
 

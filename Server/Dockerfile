@@ -10,9 +10,20 @@ EXPOSE ${ASPNETCORE_HTTP_PORTS}
 
 # upgrade : correctifs de sécurité publiés depuis l'image de base (analyse Grype de la CI)
 RUN apt-get update && apt-get -y upgrade && apt-get -y install --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
-COPY Server/bin/publish /app
+COPY --chown=app:app Server/bin/publish /app
+
+# Clés DataProtection dans le volume AppData (indépendant du HOME) : conservées au passage en non-root.
+ENV Remotely_ApplicationOptions__DataProtectionKeyDir=/app/AppData/DataProtection-Keys
+
+# Dossiers écrits à l'exécution : possédés par l'utilisateur non-root. Un volume neuf monté dessus hérite de
+# cette possession ; un volume existant (données déjà présentes) reste à son propriétaire -> chown unique côté hôte.
+RUN mkdir -p /app/AppData/DataProtection-Keys /app/wwwroot/Content \
+    && chown -R app:app /app/AppData /app/wwwroot/Content
 
 WORKDIR /app
+
+# Sécurité : l'application ne tourne pas en root (utilisateur « app », UID 1654, fourni par l'image .NET).
+USER app
 
 ENTRYPOINT ["dotnet", "Remotely_Server.dll"]
 

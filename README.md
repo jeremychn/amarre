@@ -83,7 +83,6 @@ services:
     volumes:
       - /srv/remotely:/app/AppData
       - /srv/remotely/content:/app/wwwroot/Content
-      - /srv/remotely/keys:/root/.aspnet/DataProtection-Keys
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_HTTP_PORTS=5000
@@ -95,9 +94,12 @@ services:
 Avant le premier lancement, copie les scripts d'installation des agents dans le volume `content`, puis récupère les agents de la dernière release (il faut `python3` et `unzip` sur l'hôte) :
 
 ```bash
+sudo mkdir -p /srv/remotely/content
 docker create --name tmp ghcr.io/jeremychn/amarre:latest
 docker cp tmp:/app/wwwroot/Content/. /srv/remotely/content/ && docker rm tmp
 curl -fsSL https://raw.githubusercontent.com/jeremychn/amarre/main/Utilities/maj-agents.sh | sudo sh
+# L'application tourne en utilisateur non-root (UID 1654) : les dossiers de données doivent lui appartenir.
+sudo chown -R 1654:1654 /srv/remotely
 docker compose up -d
 ```
 
