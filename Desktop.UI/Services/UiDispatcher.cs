@@ -191,6 +191,32 @@ internal class UiDispatcher : IUiDispatcher
 
     public void StartClassicDesktop()
     {
+        // Windows : Avalonia 12 passe le presse-papier par OLE, qui exige un thread STA. On arrive ici depuis
+        // un thread du pool (MTA, après les await de Main) : bouton Copier et Ctrl+C échouaient (CO_E_NOTINITIALIZED).
+        if (OperatingSystem.IsWindows() && Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+        {
+            Exception? error = null;
+            var uiThread = new Thread(() =>
+            {
+                try
+                {
+                    StartClassicDesktop();
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+            });
+            uiThread.SetApartmentState(ApartmentState.STA);
+            uiThread.Start();
+            uiThread.Join();
+            if (error is not null)
+            {
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(error);
+            }
+            return;
+        }
+
         try
         {
             var args = Environment.GetCommandLineArgs();
