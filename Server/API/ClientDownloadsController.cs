@@ -159,9 +159,16 @@ public class ClientDownloadsController : ControllerBase
         var effectiveScheme = settings.ForceClientHttps ? "https" : Request.Scheme;
         var serverUrl = $"{effectiveScheme}://{Request.Host}";
 
+        var physicalPath = Path.Combine(_hostEnv.WebRootPath, relativeFilePath);
+        if (!FileIO.Exists(physicalPath))
+        {
+            return NotFound();
+        }
+
+        // ponytail: client entier en mémoire (~55 Mo) par téléchargement, passer en flux si les téléchargements se multiplient.
         var embeddedData = new EmbeddedServerData(new Uri(serverUrl), organizationId);
-        var fileName = _embeddedDataSearcher.GetEncodedFileName(relativeFilePath, embeddedData);
-        return File(relativeFilePath, "application/octet-stream", fileName);
+        var fileBytes = _embeddedDataSearcher.Embed(await FileIO.ReadAllBytesAsync(physicalPath), embeddedData);
+        return File(fileBytes, "application/octet-stream", "Assistance" + Path.GetExtension(relativeFilePath));
     }
 
     private async Task<IActionResult> GetInstallFile(string organizationId, string platformID)

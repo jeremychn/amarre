@@ -22,7 +22,7 @@ public class CustomBinariesController(
 
     private async Task<IActionResult> GetDesktop(string platformFolder, string organizationId)
     {
-        // Page anonyme : l'ID est recopié dans le nom du fichier, seul celui d'une organisation existante passe.
+        // Page anonyme : l'ID est inscrit dans le fichier, seul celui d'une organisation existante passe.
         if (!(await _dataService.GetOrganizationNameById(organizationId)).IsSuccess)
         {
             return NotFound();
@@ -30,9 +30,8 @@ public class CustomBinariesController(
 
         var embeddedData = await GetEmbeddedData(organizationId);
         var filePath = Path.Combine(_hostingEnvironment.ContentRootPath, "AppData", platformFolder, "Remotely_Desktop.exe");
-        var fileName = _embeddedData.GetEncodedFileName(filePath, embeddedData);
-        var rs = System.IO.File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return File(rs, "application/octet-stream", fileName);
+        var fileBytes = _embeddedData.Embed(await System.IO.File.ReadAllBytesAsync(filePath), embeddedData);
+        return File(fileBytes, "application/octet-stream", "Assistance.exe");
     }
 
     private async Task<EmbeddedServerData> GetEmbeddedData(string? organizationId)

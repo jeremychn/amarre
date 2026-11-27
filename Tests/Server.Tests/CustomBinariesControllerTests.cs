@@ -83,11 +83,13 @@ public class CustomBinariesControllerTests
     private async Task<Uri> GetEmbeddedServerUrl(string organizationId, string host)
     {
         var result = await GetWinX64Desktop(organizationId, host);
-        var file = result as FileStreamResult;
+        var file = result as FileContentResult;
         Assert.IsNotNull(file);
-        await file.FileStream.DisposeAsync();
+        Assert.AreEqual("Assistance.exe", file.FileDownloadName);
 
-        var embedded = EmbeddedServerDataProvider.Instance.TryGetEmbeddedData(file.FileDownloadName);
+        var downloaded = Path.Combine(_contentRoot, "telecharge.exe");
+        await File.WriteAllBytesAsync(downloaded, file.FileContents);
+        var embedded = EmbeddedServerDataProvider.Instance.TryGetEmbeddedData(downloaded);
         Assert.IsTrue(embedded.IsSuccess);
         Assert.AreEqual(organizationId, embedded.Value.OrganizationId);
         return embedded.Value.ServerUrl;
