@@ -18,6 +18,11 @@ public class DeviceClientDto
     [DataMember]
     public string ServerVerificationToken { get; set; } = string.Empty;
 
+    /// <summary>Secret d'enrôlement de l'organisation, porté par l'installeur. Exigé d'un poste inconnu
+    /// quand le serveur a RequireEnrollmentSecret actif. Vide sinon.</summary>
+    [DataMember]
+    public string EnrollmentSecret { get; set; } = string.Empty;
+
     [DataMember]
     public double CpuUtilization { get; set; }
 

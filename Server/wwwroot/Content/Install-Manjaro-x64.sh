@@ -1,6 +1,8 @@
 #!/bin/bash
 HostName=
 Organization=
+# Secret d'enrolement : fourni par la variable d'environnement, utile seulement tant que le poste est inconnu.
+EnrollmentSecret="${EnrollmentSecret:-}"
 GUID=$(cat /proc/sys/kernel/random/uuid)
 UpdatePackagePath=""
 InstallDir="/usr/local/bin/Remotely"
@@ -79,6 +81,7 @@ connectionInfo="{
     \"DeviceID\":\"$GUID\", 
     \"Host\":\"$HostName\",
     \"OrganizationID\": \"$Organization\",
+    \"EnrollmentSecret\": \"$EnrollmentSecret\",
     \"ServerVerificationToken\":\"$SavedToken\"
 }"
 

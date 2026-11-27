@@ -181,6 +181,11 @@ public class AgentHub : Hub<IAgentHubClient>
                 return false;
             }
 
+            if (!await CheckEnrollmentSecret(device))
+            {
+                return false;
+            }
+
             // Poste cloné : même DeviceID, autre machine, déjà connecté.
             if (_serviceSessionCache.TryGetByDeviceId(device.ID, out var connectedDevice) &&
                 IsOtherMachine(connectedDevice, device))
@@ -234,6 +239,36 @@ public class AgentHub : Hub<IAgentHubClient>
         }
 
         Context.Abort();
+        return false;
+    }
+
+    // Poste inconnu (ou sans jeton en base) : exige le secret d'enrôlement de l'organisation, quand le serveur
+    // l'impose. Connaître le seul ID d'organisation ne suffit alors plus à enrôler un poste (ferme M3).
+    // Un poste déjà enrôlé (jeton en base, prouvé par CheckAgentToken) n'est pas concerné : il n'a pas le secret.
+    private async Task<bool> CheckEnrollmentSecret(DeviceClientDto device)
+    {
+        var settings = await _dataService.GetSettings();
+        if (!settings.RequireEnrollmentSecret)
+        {
+            return true;
+        }
+
+        var stored = await _dataService.GetDevice(device.ID);
+        if (stored.IsSuccess && !string.IsNullOrEmpty(stored.Value.ServerVerificationToken))
+        {
+            // Poste connu : déjà validé par son jeton, il n'envoie pas de secret d'enrôlement.
+            return true;
+        }
+
+        if (await _dataService.ValidateEnrollmentSecret(device.OrganizationID, device.EnrollmentSecret))
+        {
+            return true;
+        }
+
+        _logger.LogWarning(
+            "Enrôlement refusé pour {DeviceId} ({DeviceName}, {PublicIp}) : secret d'enrôlement absent ou faux " +
+            "pour l'organisation {OrgId}.",
+            device.ID, device.DeviceName, device.PublicIP, device.OrganizationID);
         return false;
     }
 

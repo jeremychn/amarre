@@ -15,7 +15,7 @@ namespace Remotely.Server.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.2");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.15");
 
             modelBuilder.Entity("DeviceGroupRemotelyUser", b =>
                 {
@@ -543,6 +543,9 @@ namespace Remotely.Server.Migrations.Sqlite
                         .HasColumnType("TEXT");
 
                     b.Property<string>("BrandingInfoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EnrollmentSecret")
                         .HasColumnType("TEXT");
 
                     b.Property<bool>("IsDefaultOrganization")

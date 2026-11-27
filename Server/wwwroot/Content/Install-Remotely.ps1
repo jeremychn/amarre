@@ -13,6 +13,7 @@ param (
 	[string]$DeviceGroup,
 	[string]$Path,
 	[string]$OrganizationId,
+	[string]$EnrollmentSecret,
 	[string]$ServerUrl,
 	[switch]$Uninstall,
 	[switch]$Quiet
@@ -142,6 +143,9 @@ function Run-StartupChecks {
 		if ($OrganizationId) {
 			$Params += " -OrganizationId $OrganizationId"
 		}
+		if ($EnrollmentSecret) {
+			$Params += " -EnrollmentSecret $EnrollmentSecret"
+		}
 		if ($ServerUrl) {
 			$Params += " -ServerUrl $ServerUrl"
 		}
@@ -193,6 +197,8 @@ function Install-Remotely {
 			}
 			$ConnectionInfo.Host = $HostName
 			$ConnectionInfo.OrganizationID = $Organization
+			# Secret d'enrôlement : utile seulement tant que le poste est inconnu du serveur.
+			$ConnectionInfo | Add-Member -NotePropertyName EnrollmentSecret -NotePropertyValue $EnrollmentSecret -Force
 		}
 	}
 	else {
@@ -205,6 +211,7 @@ function Install-Remotely {
 			DeviceID                = $NewDeviceId;
 			Host                    = $HostName;
 			OrganizationID          = $Organization;
+			EnrollmentSecret        = $EnrollmentSecret;
 			ServerVerificationToken = "";
 		}
 	}

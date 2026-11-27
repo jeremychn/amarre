@@ -300,6 +300,19 @@ Retour arrière : remettre `content.bak-<date>`.
 ## 6. Installer l'agent sur un poste client
 
 - **Installation permanente** : sur le site, page **/deploy**, télécharger l'installeur de la plateforme (Windows x64/x86, Linux, macOS) et le lancer en administrateur (ou `sudo` pour les `.sh`). L'appareil apparaît dans la liste.
+
+### 6.1 Secret d'enrôlement (facultatif, recommandé)
+
+Par défaut, un poste inconnu s'enrôle avec le seul identifiant d'organisation. Pour exiger en plus un secret partagé (un attaquant qui connaît l'identifiant d'organisation ne peut alors plus enrôler de poste) :
+
+1. Page **Déploiement** : relever le **secret d'enrôlement de l'organisation** (bouton **Changer** pour en tirer un nouveau). Les commandes d'installation de cette page le portent déjà.
+2. Déploiement par script plutôt que par copier-coller (par exemple une **GPO** qui lance `Install-Remotely.ps1`) : ajouter le secret à l'appel.
+   - Windows : `powershell -ExecutionPolicy Bypass -File <chemin>\Install-Remotely.ps1 -EnrollmentSecret <secret>`
+   - Linux/macOS : `sudo EnrollmentSecret=<secret> /tmp/Install-Remotely.sh`
+   - Le secret **n'est jamais** dans le script téléchargé anonymement ; il n'est passé qu'à l'exécution. Il ne sert qu'à la première connexion d'un poste inconnu.
+3. Une fois **tous** les déploiements recoupés pour porter le secret : **Configuration du serveur** → cocher **« Exiger le secret d'enrôlement pour les nouveaux postes »**. Les postes déjà enrôlés ne sont pas touchés. Tant que la case n'est pas cochée, le secret est accepté mais pas exigé (déploiement sans coupure).
+
+Changer le secret (bouton **Changer**) oblige à recouper les déploiements : les postes déjà enrôlés continuent de fonctionner, mais un nouveau poste devra porter le nouveau secret.
 - **Assistance ponctuelle** : envoyer le client portable (`Remotely_Desktop.exe` sous Windows, `Remotely_Desktop` sous Linux) ; l'utilisateur le lance et communique le code de session.
 - **Fichiers envoyés au poste** (bouton « Envoyer un fichier » de la carte) : rangés dans le dossier `SharedFiles` de l'agent (`C:\Program Files\Remotely\SharedFiles` sous Windows, `/usr/local/bin/Remotely/SharedFiles` sous Linux et macOS), réservé à SYSTEM et aux administrateurs (root sous Linux et macOS) : l'utilisateur du poste n'y a pas accès, un script lancé depuis la console peut les déplacer. Les installeurs vident ce dossier à chaque réinstallation ou mise à jour de l'agent. Les agents antérieurs écrivaient dans le dossier temporaire du système (`RemotelySharedFiles`).
 

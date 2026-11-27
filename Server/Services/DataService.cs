@@ -146,6 +146,15 @@ public interface IDataService
 
     Task<Result<string>> GetOrganizationNameById(string organizationId);
 
+    /// <summary>Secret d'enrôlement de l'organisation ; en génère un et l'enregistre s'il manque (anciennes organisations).</summary>
+    Task<Result<string>> GetOrCreateEnrollmentSecret(string organizationId);
+
+    /// <summary>Vrai si le secret fourni correspond à celui de l'organisation (comparaison en temps constant).</summary>
+    Task<bool> ValidateEnrollmentSecret(string organizationId, string enrollmentSecret);
+
+    /// <summary>Remplace le secret d'enrôlement par un neuf et le renvoie.</summary>
+    Task<Result<string>> RotateEnrollmentSecret(string organizationId);
+
     Task<Result<string>> GetOrganizationNameByUserName(string userName);
 
     Task<IEnumerable<ScriptRun>> GetPendingScriptRuns(string deviceId);
@@ -1655,6 +1664,63 @@ public class DataService : IDataService
         }
 
         return Result.Ok(org.OrganizationName);
+    }
+
+    public async Task<Result<string>> GetOrCreateEnrollmentSecret(string organizationId)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        var org = await dbContext.Organizations.FindAsync(organizationId);
+        if (org is null)
+        {
+            return Result.Fail<string>("Organisation introuvable.");
+        }
+
+        if (string.IsNullOrEmpty(org.EnrollmentSecret))
+        {
+            org.EnrollmentSecret = RandomGenerator.GenerateString(32);
+            await dbContext.SaveChangesAsync();
+        }
+
+        return Result.Ok(org.EnrollmentSecret);
+    }
+
+    public async Task<bool> ValidateEnrollmentSecret(string organizationId, string enrollmentSecret)
+    {
+        if (string.IsNullOrEmpty(enrollmentSecret))
+        {
+            return false;
+        }
+
+        using var dbContext = _appDbFactory.GetContext();
+
+        var org = await dbContext.Organizations
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.ID == organizationId);
+
+        if (org is null || string.IsNullOrEmpty(org.EnrollmentSecret))
+        {
+            return false;
+        }
+
+        return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(org.EnrollmentSecret),
+            System.Text.Encoding.UTF8.GetBytes(enrollmentSecret));
+    }
+
+    public async Task<Result<string>> RotateEnrollmentSecret(string organizationId)
+    {
+        using var dbContext = _appDbFactory.GetContext();
+
+        var org = await dbContext.Organizations.FindAsync(organizationId);
+        if (org is null)
+        {
+            return Result.Fail<string>("Organisation introuvable.");
+        }
+
+        org.EnrollmentSecret = RandomGenerator.GenerateString(32);
+        await dbContext.SaveChangesAsync();
+        return Result.Ok(org.EnrollmentSecret);
     }
 
     public async Task<Result<string>> GetOrganizationNameByUserName(string userName)

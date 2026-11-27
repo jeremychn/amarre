@@ -157,6 +157,8 @@ public class AgentHubConnection : IAgentHubConnection, IDisposable
 
                 var device = await _deviceInfoService.CreateDevice(_connectionInfo.DeviceID, _connectionInfo.OrganizationID);
                 device.ServerVerificationToken = await GetAgentProof();
+                // Secret d'enrôlement : ne sert qu'à la première connexion d'un poste inconnu. Inoffensif ensuite.
+                device.EnrollmentSecret = _connectionInfo.EnrollmentSecret ?? string.Empty;
 
                 var result = await _hubConnection.InvokeAsync<bool>("DeviceCameOnline", device);
 

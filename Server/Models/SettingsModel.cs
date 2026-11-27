@@ -24,6 +24,10 @@ public class SettingsModel
     public bool RemoteControlNotifyUser { get; set; } = true;
     public bool RemoteControlRequiresAuthentication { get; set; } = true;
     public bool Require2FA { get; set; }
+    // Exige le secret d'enrôlement de l'organisation pour qu'un poste inconnu s'enrôle. Désactivé par défaut :
+    // à n'activer qu'une fois les installeurs (et le déploiement GPO) recoupés pour porter le secret, sinon
+    // les nouveaux postes sont refusés. Les postes déjà enrôlés (jeton en base) ne sont pas concernés.
+    public bool RequireEnrollmentSecret { get; set; }
     public string ServerUrl { get; set; } = string.Empty;
     public bool SmtpCheckCertificateRevocation { get; set; } = true;
     public string SmtpDisplayName { get; set; } = string.Empty;

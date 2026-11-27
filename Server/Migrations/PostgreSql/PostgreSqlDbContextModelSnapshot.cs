@@ -17,7 +17,7 @@ namespace Remotely.Server.Migrations.PostgreSql
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.2")
+                .HasAnnotation("ProductVersion", "10.0.15")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -549,6 +549,9 @@ namespace Remotely.Server.Migrations.PostgreSql
                         .HasColumnType("text");
 
                     b.Property<string>("BrandingInfoId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EnrollmentSecret")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDefaultOrganization")

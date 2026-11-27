@@ -23,6 +23,28 @@
 </p>
 
 <div class="row">
+    <div class="col-sm-12 mb-3">
+        <div class="mb-1">
+            <strong>Secret d'enrôlement de l'organisation</strong>
+        </div>
+        <div class="input-group">
+            <input type="text" class="form-control" readonly value="@_enrollmentSecret" />
+            <button class="btn btn-primary" type="button" @onclick="() => CopyScriptToClipboard(_enrollmentSecret)" title="Copier">
+                <i class="oi oi-clipboard"></i>
+            </button>
+            <button class="btn btn-outline-danger" type="button" @onclick="RotateEnrollmentSecret" title="Changer le secret">
+                Changer
+            </button>
+        </div>
+        <small class="form-text text-muted">
+            Déjà inclus dans les commandes ci-dessous. S'il est exigé (Configuration du serveur), un poste inconnu
+            ne s'enrôle qu'avec ce secret. Le changer oblige à recouper les installeurs et déploiements GPO ;
+            les postes déjà enrôlés ne sont pas touchés.
+        </small>
+    </div>
+</div>
+
+<div class="row">
 
     <div class="col-sm-12 mb-3">
         <div class="mb-1">
@@ -183,6 +205,7 @@
 @code {
     private static readonly SemaphoreSlim _writeLock = new(1, 1);
     private string _organizationId = string.Empty;
+    private string _enrollmentSecret = string.Empty;
     private string _windowsScript = string.Empty;
     private string _ubuntuScript = string.Empty;
     private string _manjaroScript = string.Empty;
@@ -209,6 +232,8 @@
 
         _isServerAdmin = userResult.Value.IsServerAdmin;
         _organizationId = userResult.Value.OrganizationID;
+        var secretResult = await DataService.GetOrCreateEnrollmentSecret(_organizationId);
+        _enrollmentSecret = secretResult.IsSuccess ? secretResult.Value : string.Empty;
         _appDataDir = Path.Combine(HostEnv.ContentRootPath, "AppData");
         _winX64Uri = $"{NavMan.BaseUri}api/custom-binaries/win-x64/desktop/{_organizationId}";
         _winX86Uri = $"{NavMan.BaseUri}api/custom-binaries/win-x86/desktop/{_organizationId}";
@@ -256,13 +281,26 @@
         Toasts.ShowToast2("Impossible d'écrire dans le presse-papiers", ToastType.Error);
     }
 
+    private async Task RotateEnrollmentSecret()
+    {
+        var result = await DataService.RotateEnrollmentSecret(_organizationId);
+        if (!result.IsSuccess)
+        {
+            Toasts.ShowToast2(result.Reason, ToastType.Error);
+            return;
+        }
+        _enrollmentSecret = result.Value;
+        SetScriptContent();
+        Toasts.ShowToast("Secret d'enrôlement changé. Recoupez vos installeurs et déploiements.");
+    }
+
     private string GetLinuxScript(string platformId)
     {
         return
             $"sudo rm -f /tmp/Install-Remotely.sh && " +
             $"sudo wget -q -O /tmp/Install-Remotely.sh {NavMan.BaseUri}api/ClientDownloads/{platformId}/{_organizationId} && " +
             $"sudo chmod +x /tmp/Install-Remotely.sh && " +
-            $"sudo /tmp/Install-Remotely.sh";
+            $"sudo EnrollmentSecret='{_enrollmentSecret}' /tmp/Install-Remotely.sh";
     }
 
 
@@ -295,8 +333,9 @@
 
     private void SetScriptContent()
     {
+        // Le secret d'enrôlement est passé en paramètre (pas dans le script téléchargé, qui reste anonyme).
         _windowsScript =
-            $"irm '{NavMan.BaseUri}api/ClientDownloads/WindowsInstaller/{_organizationId}'|iex";
+            $"&([scriptblock]::Create((irm '{NavMan.BaseUri}api/ClientDownloads/WindowsInstaller/{_organizationId}'))) -EnrollmentSecret '{_enrollmentSecret}'";
 
         _ubuntuScript = GetLinuxScript("UbuntuInstaller-x64");
 

@@ -55,6 +55,12 @@ Ce dépôt repart d'un historique git vierge (27/10/2026, publication sous le no
 - **À propos** : affiche la version du serveur (fichier `VERSION`) au lieu de `1.0.0.0`.
 - **Dépendances** : MessagePack 2.5.303 (avis du 15/10/2026). Les contrôles de `build.yml` tournent aussi chaque lundi, pour qu'un nouvel avis bloque avant la prochaine publication.
 
+## Novembre 2026 — Secret d'enrôlement, correctifs d'un pentest
+
+- **Secret d'enrôlement par organisation** : un poste **inconnu** doit présenter le secret d'enrôlement de son organisation pour s'enrôler, quand le réglage **« Exiger le secret d'enrôlement »** est actif (Configuration du serveur, **désactivé par défaut**). Connaître le seul identifiant d'organisation ne suffit plus. Les postes **déjà enrôlés** (jeton en base) ne sont pas concernés. Le secret est un paramètre de l'installeur (`-EnrollmentSecret` sous Windows, variable d'environnement `EnrollmentSecret` sous Linux/macOS), **jamais inclus dans le script téléchargé** : les commandes de la page **Déploiement** le portent déjà. Un déploiement par script (par exemple une GPO qui lance `Install-Remotely.ps1`) doit ajouter `-EnrollmentSecret <secret>` à l'appel. À n'activer qu'une fois les installeurs et déploiements recoupés, sinon les nouveaux postes sont refusés.
+- **XSS stocké (historique des scripts)** : l'entrée et la sortie d'un script, venues du poste, étaient affichées en HTML brut dans la fenêtre « Tout afficher » ; une sortie piégée s'exécutait dans la session du technicien. Encodées désormais.
+- **Fuite d'identifiant d'organisation** : `GET /api/Branding` (anonyme) renvoyait l'identifiant de l'organisation par défaut ; les endpoints anonymes de branding ne renvoient plus que le logo et le nom du produit.
+
 ## Versions
 
 | Version | Date | Contenu |

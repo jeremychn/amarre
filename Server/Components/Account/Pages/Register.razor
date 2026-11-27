@@ -140,7 +140,8 @@ else
                 Organization = new Organization()
                 {
                     OrganizationName = string.Empty,
-                    IsDefaultOrganization = organizationCount == 0
+                    IsDefaultOrganization = organizationCount == 0,
+                    EnrollmentSecret = Remotely.Shared.Helpers.RandomGenerator.GenerateString(32)
                 },
                 UserOptions = new RemotelyUserOptions(),
                 IsAdministrator = true,

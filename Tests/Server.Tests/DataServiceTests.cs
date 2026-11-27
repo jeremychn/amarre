@@ -43,6 +43,27 @@ public class DataServiceTests
     }
 
     [TestMethod]
+    [DoNotParallelize]
+    public async Task EnrollmentSecret_GenereRejetteMauvaisAccepteBon()
+    {
+        // Organisation sans secret (créée avant la migration) : en génère un.
+        var secret = (await _dataService.GetOrCreateEnrollmentSecret(_testData.Org1Id)).Value!;
+        Assert.IsFalse(string.IsNullOrEmpty(secret));
+
+        Assert.IsTrue(await _dataService.ValidateEnrollmentSecret(_testData.Org1Id, secret));
+        Assert.IsFalse(await _dataService.ValidateEnrollmentSecret(_testData.Org1Id, "mauvais"));
+        Assert.IsFalse(await _dataService.ValidateEnrollmentSecret(_testData.Org1Id, ""));
+        // Le secret d'une organisation ne vaut pas pour une autre.
+        Assert.IsFalse(await _dataService.ValidateEnrollmentSecret(_testData.Org2Id, secret));
+
+        // Rotation : le nouveau secret marche, l'ancien non.
+        var rotated = (await _dataService.RotateEnrollmentSecret(_testData.Org1Id)).Value!;
+        Assert.AreNotEqual(secret, rotated);
+        Assert.IsTrue(await _dataService.ValidateEnrollmentSecret(_testData.Org1Id, rotated));
+        Assert.IsFalse(await _dataService.ValidateEnrollmentSecret(_testData.Org1Id, secret));
+    }
+
+    [TestMethod]
     public async Task AddAlert()
     {
         await _dataService.AddAlert(_testData.Org1Device1.ID, _testData.Org1Id, "Test Message");

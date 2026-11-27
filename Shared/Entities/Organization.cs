@@ -31,6 +31,10 @@ public class Organization
 
     public bool IsDefaultOrganization { get; set; }
 
+    // Secret d'enrôlement de l'organisation : exigé d'un poste inconnu pour qu'il s'enrôle, quand
+    // le réglage RequireEnrollmentSecret est actif. Nul pour les organisations créées avant la migration.
+    public string? EnrollmentSecret { get; set; }
+
     [StringLength(25)]
     public required string OrganizationName { get; set; }
 

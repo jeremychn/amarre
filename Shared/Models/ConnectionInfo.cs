@@ -21,5 +21,8 @@ public class ConnectionInfo
     /// <summary>UUID matériel du poste qui a reçu ce DeviceID (voir HardwareId).</summary>
     public string? HardwareId { get; set; }
     public string? ServerVerificationToken { get; set; }
+    /// <summary>Secret d'enrôlement de l'organisation, fourni à l'installation (paramètre de l'installeur).
+    /// Envoyé au serveur à la première connexion ; ne sert que tant que le poste est inconnu.</summary>
+    public string? EnrollmentSecret { get; set; }
 
 }
