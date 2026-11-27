@@ -350,10 +350,12 @@ public class DesktopHub : Hub<IDesktopHubClient>
         _logger.LogDebug("Windows session changed during remote control.  " +
             "Reason: {reason}.  " +
             "Current Session ID: {sessionId}.  " +
-            "Session Info: {@sessionInfo}",
+            "Unattended Session ID: {unattendedSessionId}.  " +
+            "Device ID: {deviceId}",
             reason,
             currentSessionId,
-            SessionInfo);
+            SessionInfo.UnattendedSessionId,
+            SessionInfo.DeviceId);
 
         await _agentHub.Clients
             .Client(SessionInfo.AgentConnectionId)

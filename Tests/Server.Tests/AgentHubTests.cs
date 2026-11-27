@@ -302,6 +302,20 @@ public class AgentHubTests
 
     [TestMethod]
     [DoNotParallelize]
+    public async Task DeviceCameOnline_PosteSansJetonAutreOrganisation_Refuse()
+    {
+        var device = _testData.Org1Device1;
+        device.Drives = [];
+        var dto = device.ToDto();
+        dto.ServerVerificationToken = "";
+        dto.OrganizationID = _testData.Org2Id;
+
+        Assert.IsFalse(await CreateHub(new AgentHubSessionCache(), out _).DeviceCameOnline(dto));
+        Assert.AreEqual(_testData.Org1Id, (await _dataService.GetDevice(device.ID)).Value?.OrganizationID);
+    }
+
+    [TestMethod]
+    [DoNotParallelize]
     public async Task DeviceCameOnline_AncienAgentSansJeton_RefuseEtJetonGarde()
     {
         // Poste enrôlé, ancien agent daté en base : l'exception qui l'admettait sans jeton (et le laissait

@@ -12,7 +12,7 @@ namespace Remotely.Server.Models;
 /// </summary>
 public class RemoteControlSession : IDisposable
 {
-    private readonly ManualResetEventSlim _sessionReadySignal = new(false);
+    private ManualResetEventSlim _sessionReadySignal = new(false);
     private bool _disposedValue;
     private StreamerState _streamerState;
 
@@ -89,7 +89,9 @@ public class RemoteControlSession : IDisposable
         clone.UnattendedSessionId = Guid.NewGuid();
         clone.AccessKey = RandomGenerator.GenerateAccessKey();
         clone.ViewerList = new();
-        clone.ViewOnly = false;
+        // Signal propre au clone : l'original est libéré par le cache à son expiration.
+        clone._sessionReadySignal = new(false);
+        clone._disposedValue = false;
         return clone;
     }
 

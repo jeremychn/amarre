@@ -40,7 +40,10 @@ public class ApiAuthorizationFilter : IAsyncAuthorizationFilter
         if (http.User.Identity?.IsAuthenticated == true)
         {
             var userResult = await _dataService.GetUserByName($"{http.User.Identity.Name}");
-            if (userResult.IsSuccess && userResult.Value.IsAdministrator)
+            // 2FA exigée : un admin qui ne l'a pas activée est bloqué dans l'interface, il doit l'être aussi ici.
+            var settings = await _dataService.GetSettings();
+            if (userResult.IsSuccess && userResult.Value.IsAdministrator &&
+                (!settings.Require2FA || userResult.Value.TwoFactorEnabled))
             {
                 http.Request.Headers["OrganizationID"] = userResult.Value.OrganizationID;
                 return;

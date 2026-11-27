@@ -296,8 +296,6 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
-app.UseRateLimiter();
-
 if (settings.UseHttpLogging)
 {
     app.UseHttpLogging();
@@ -351,6 +349,9 @@ app.Use(async (context, next) =>
 ConfigureStaticFiles();
 
 app.UseRouting();
+
+// Après UseRouting : les règles posées sur un contrôleur ([EnableRateLimiting]) ont besoin du point de terminaison.
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -71,7 +71,7 @@ public class AgentHub : Hub<IAgentHubClient>
             return;
         }
 
-        if (_circuitManager.TryGetConnection(browserConnectionId, out _))
+        if (CanRelayToCircuit(browserConnectionId))
         {
             var message = new ChatReceivedMessage(Device.ID, $"{Device.DeviceName}", messageText, disconnected);
             await _messenger.Send(message, browserConnectionId);
@@ -303,9 +303,24 @@ public class AgentHub : Hub<IAgentHubClient>
     private async Task<bool> CheckAgentToken(DeviceClientDto device)
     {
         var stored = await _dataService.GetDevice(device.ID);
-        if (!stored.IsSuccess || string.IsNullOrEmpty(stored.Value.ServerVerificationToken))
+        if (!stored.IsSuccess)
         {
             return true;
+        }
+
+        if (string.IsNullOrEmpty(stored.Value.ServerVerificationToken))
+        {
+            // Poste connu sans jeton (précréé par l'API, ou base restaurée) : l'agent doit annoncer l'organisation
+            // du poste, sinon le secret d'enrôlement d'une autre organisation suffirait à en prendre la place.
+            if (string.Equals(stored.Value.OrganizationID, device.OrganizationID, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            _logger.LogWarning(
+                "Enrôlement refusé pour {DeviceId} ({DeviceName}, {PublicIp}) : organisation annoncée {OrgId}, " +
+                "le poste appartient à {StoredOrgId}.",
+                device.ID, device.DeviceName, device.PublicIP, device.OrganizationID, stored.Value.OrganizationID);
+            return false;
         }
 
         // Preuve signée sur le défi de cette connexion (usage unique).
