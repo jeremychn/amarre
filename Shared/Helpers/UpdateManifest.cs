@@ -20,7 +20,7 @@ public static class UpdateManifest
     public const string FileName = "Manifest.txt";
 
     /// <summary>Clés publiques en plus (une par ligne), livrées dans le paquet de l'agent : clé d'une instance
-    /// qui re-signe ses agents (APEI). Lue dans le dossier de l'agent installé, donc venue d'un paquet déjà vérifié.</summary>
+    /// qui re-signe ses agents en Authenticode. Lue dans le dossier de l'agent installé, donc venue d'un paquet déjà vérifié.</summary>
     public const string ExtraKeysFileName = "cles-maj.pub";
 
     /// <summary>Posé à la main par un administrateur du poste : la prochaine mise à jour passe sans vérification.

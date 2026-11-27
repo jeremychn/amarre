@@ -287,14 +287,14 @@ Une instance qui sert ses propres agents signés ne passe **pas** par `maj-agent
    **Agents 1.28 et plus : signer aussi le manifeste.** Le zip re-signé n'a plus l'empreinte du `Manifest.txt` de la release : sans nouveau manifeste, les postes refusent la mise à jour. L'instance a sa propre clé ([§5.5](#55-signature-des-mises-à-jour), créée une fois), et sa clé publique part dans le zip pour que les agents l'acceptent. Lancer donc `Sign-Remotely.ps1` avec la clé publique :
 
    ```powershell
-   powershell -File <dépôt>\Utilities\Sign-Remotely.ps1 -ClePublique <chemin>\amarre-maj-apei.pub
+   powershell -File <dépôt>\Utilities\Sign-Remotely.ps1 -ClePublique <chemin>\amarre-maj-instance.pub
    ```
 
    puis, une fois les `Move-Item` faits, **en dernier** (rien ne doit plus toucher au dossier ensuite) :
 
    ```powershell
    cd <dépôt>
-   dotnet run Utilities/amarre-maj.cs -- signer <chemin>\content <chemin>\amarre-maj-apei.pem
+   dotnet run Utilities/amarre-maj.cs -- signer <chemin>\content <chemin>\amarre-maj-instance.pem
    ```
 
    L'outil demande le mot de passe de la clé et affiche le manifeste écrit. Il faut le SDK .NET 10 sur le poste.
@@ -333,8 +333,8 @@ Si un seul point échoue, l'agent ne lance rien, note « Mise à jour refusée :
 
 | Clé | Où est la clé privée | Rôle |
 |---|---|---|
-| principale | secret GitHub `AMARRE_UPDATE_KEY` (PEM) + KeePass | signe `Manifest.txt` à chaque release (`release.yml`) |
-| secours | KeePass seulement, hors ligne | remplace la principale si elle est perdue ou volée |
+| principale | secret GitHub `AMARRE_UPDATE_KEY` (PEM) + gestionnaire de mots de passe | signe `Manifest.txt` à chaque release (`release.yml`) |
+| secours | gestionnaire de mots de passe seulement, hors ligne | remplace la principale si elle est perdue ou volée |
 
 Sans le secret, la release échoue au lieu de publier des agents sans manifeste. Le poser une fois, depuis le dossier qui contient la clé :
 
@@ -342,14 +342,14 @@ Sans le secret, la release échoue au lieu de publier des agents sans manifeste.
 gh secret set AMARRE_UPDATE_KEY --repo jeremychn/amarre --body (Get-Content .\amarre-maj-principale.pem -Raw)
 ```
 
-Créer une clé (SDK .NET 10, depuis la racine du dépôt). Le `.pem` est **secret** : KeePass, jamais dans le dépôt ; le `.pub` est public :
+Créer une clé (SDK .NET 10, depuis la racine du dépôt). Le `.pem` est **secret** : gestionnaire de mots de passe, jamais dans le dépôt ; le `.pub` est public :
 
 ```powershell
-dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-apei                             # chiffrée, mot de passe demandé
+dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-instance                             # chiffrée, mot de passe demandé
 dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-principale --sans-mot-de-passe   # pour un secret GitHub
 ```
 
-**Instance qui re-signe ses agents** (APEI, [§5.4](#54-instance-aux-agents-signés)) : elle a sa propre clé, créée une fois et chiffrée par mot de passe (`amarre-maj-apei.pem` dans le KeePass de l'APEI). Si elle est perdue : déposer le `Content.zip` de la release tel quel (signé par la clé du projet, toujours acceptée), puis créer une nouvelle clé et reprendre §5.4. Les postes perdent juste l'Authenticode le temps d'une release.
+**Instance qui re-signe ses agents** ([§5.4](#54-instance-aux-agents-signés)) : elle a sa propre clé, créée une fois et chiffrée par mot de passe (`amarre-maj-instance.pem` dans le gestionnaire de mots de passe de l'instance). Si elle est perdue : déposer le `Content.zip` de la release tel quel (signé par la clé du projet, toujours acceptée), puis créer une nouvelle clé et reprendre §5.4. Les postes perdent juste l'Authenticode le temps d'une release.
 
 **Clé perdue ou volée** :
 - **principale perdue** : signer avec la secours (`signer <dossier> amarre-maj-secours.pem`, ou mettre la secours dans le secret le temps d'une release). Dans la release suivante, une nouvelle paire remplace l'ancienne dans `UpdateManifest.cs`.

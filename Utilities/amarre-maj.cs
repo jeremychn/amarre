@@ -25,7 +25,7 @@ switch (args)
         }
         else
         {
-            var password = ReadPassword("Mot de passe (long, à ranger dans KeePass) : ");
+            var password = ReadPassword("Mot de passe (long, à ranger dans un gestionnaire de mots de passe) : ");
             if (password.Length < 12 || password != ReadPassword("Encore une fois : "))
             {
                 throw new ArgumentException("Mots de passe différents ou trop courts (12 caractères au moins).");
