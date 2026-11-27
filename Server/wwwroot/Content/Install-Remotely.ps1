@@ -231,7 +231,7 @@ function Install-Remotely {
 		# Dossier de mise à jour créé par l'agent : plus utile
 		$UpdateDir = Split-Path -Path $Path -Parent
 		if ((Split-Path -Path $UpdateDir -Leaf) -like "amarre-maj-*") {
-			Remove-Item -Path $UpdateDir -Recurse -Force -ErrorAction SilentlyContinue
+			try { Remove-Item -LiteralPath $UpdateDir -Recurse -Force -ErrorAction Stop } catch { }
 		}
 
 	}
@@ -251,7 +251,8 @@ function Install-Remotely {
 	Get-ChildItem -Path $InstallPath | Where-Object { $_.Name -notlike "ConnectionInfo.json" } | Remove-Item -Recurse -Force
 
 	Expand-Archive -Path $ZipPath -DestinationPath "$InstallPath" -Force
-	Remove-Item -Path $WorkDir -Recurse -Force -ErrorAction SilentlyContinue
+	# Nettoyage au mieux : -LiteralPath (chemins courts 8.3, caractères spéciaux), erreur ignorée.
+	try { Remove-Item -LiteralPath $WorkDir -Recurse -Force -ErrorAction Stop } catch { Write-Log "Nettoyage du dossier de travail ignoré : $($_.Exception.Message)" }
 
 	# Contient le jeton du poste : SYSTEM et Administrateurs seulement
 	Write-RestrictedFile "$InstallPath\ConnectionInfo.json" (ConvertTo-Json -InputObject $ConnectionInfo)
