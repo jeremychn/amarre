@@ -1,7 +1,8 @@
 # Publie une version :
 #   - image serveur  -> ghcr.io/jeremychn/amarre:X.Y (+ latest)
 #   - agents (Windows x64/x86, Linux x64/arm64, macOS x64/arm64) -> Content.zip dans la release GitHub,
-#     seulement si leur code a changé depuis le tag précédent ; non signés
+#     seulement si leur code a changé depuis le tag précédent ; sans Authenticode, mais avec
+#     Manifest.txt signé (secret AMARRE_UPDATE_KEY) que les agents vérifient avant toute mise à jour
 # Deux déclencheurs, même résultat :
 #   - le fichier VERSION change sur main et le tag vX.Y n'existe pas encore : la release crée le tag ;
 #   - un tag vX.Y poussé à la main (git tag vX.Y && git push origin vX.Y).
@@ -125,6 +126,8 @@ jobs:
       - name: Build des agents (Windows x64/x86, Linux x64/arm64, macOS x64/arm64)
         if: env.BUILD == 'True'
         shell: pwsh
+        env:
+          AMARRE_UPDATE_KEY: ${{ secrets.AMARRE_UPDATE_KEY }} # clé privée de signature des mises à jour
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
           # Version des agents = celle de la release qui les recompile (tag publié, sinon fichier VERSION)
@@ -148,6 +151,9 @@ jobs:
           Get-ChildItem $C -Recurse -Filter *.pdb | Remove-Item
           # Lu par le serveur pour le témoin « agent obsolète »
           [IO.File]::WriteAllText("$C\AgentVersion.txt", $V)
+          # Manifeste signé (SHA-256 de chaque fichier) : les agents refusent toute mise à jour qui n'y colle pas.
+          # Dernier geste avant le zip : rien ne doit plus toucher au dossier ensuite.
+          dotnet run Utilities/amarre-maj.cs -- signer $C
           New-Item dist -ItemType Directory | Out-Null
           Compress-Archive -Path "$C\*" -DestinationPath dist\Content.zip
           "AGENT_VERSION=$V" >> $env:GITHUB_ENV
@@ -172,7 +178,7 @@ jobs:
             exit 0
           }
           if ($env:BUILD -eq 'True') {
-            gh release create $tag dist\Content.zip --target $env:GITHUB_SHA --title "$tag (agents $env:AGENT_VERSION)" --notes "Agents v$env:AGENT_VERSION (non signés) : Windows x64/x86, Linux x64/arm64, macOS x64/arm64. Décompresser Content.zip dans le volume content du serveur. $image"
+            gh release create $tag dist\Content.zip --target $env:GITHUB_SHA --title "$tag (agents $env:AGENT_VERSION)" --notes "Agents v$env:AGENT_VERSION (manifeste signé, sans Authenticode) : Windows x64/x86, Linux x64/arm64, macOS x64/arm64. Décompresser Content.zip dans le volume content du serveur. $image"
           } else {
             gh release create $tag --target $env:GITHUB_SHA --title "$tag (agents inchangés)" --notes "Agents inchangés depuis $env:PREV : garder ceux de cette release. $image"
           }

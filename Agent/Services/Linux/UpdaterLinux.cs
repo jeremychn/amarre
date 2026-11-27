@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Remotely.Agent.Interfaces;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Utilities;
 using System;
 using System.Diagnostics;
@@ -142,33 +143,38 @@ public class UpdaterLinux : IUpdater
 
             var installerPath = Path.Combine(workDir, "RemotelyUpdate.sh");
 
-            string platform;
+            string scriptName;
 
-            if (RuntimeInformation.OSDescription.Contains("Ubuntu", StringComparison.OrdinalIgnoreCase))
+            if (_isArm64)
             {
-                platform = _isArm64 ? "LinuxArm64Installer" : "UbuntuInstaller-x64";
+                scriptName = "Install-Linux-arm64.sh";
+            }
+            else if (RuntimeInformation.OSDescription.Contains("Ubuntu", StringComparison.OrdinalIgnoreCase))
+            {
+                scriptName = "Install-Ubuntu-x64.sh";
             }
             else if (RuntimeInformation.OSDescription.Contains("Manjaro", StringComparison.OrdinalIgnoreCase))
             {
-                platform = _isArm64 ? "LinuxArm64Installer" : "ManjaroInstaller-x64";
-            }
-            else if (_isArm64)
-            {
-                platform = "LinuxArm64Installer";
+                scriptName = "Install-Manjaro-x64.sh";
             }
             else
             {
                 throw new PlatformNotSupportedException();
             }
 
-            await _updateDownloader.DownloadFile(
-                   $"{serverUrl}/API/ClientDownloads/{platform}/{connectionInfo.OrganizationID}",
-                   installerPath);
+            // Script brut (celui du manifeste), rempli ici après vérification.
+            await _updateDownloader.DownloadFile($"{serverUrl}/Content/{scriptName}", installerPath);
 
             var agentPlatform = _isArm64 ? "linux-arm64" : "linux";
             await _updateDownloader.DownloadFile(
                $"{serverUrl}/API/AgentUpdate/DownloadPackage/{agentPlatform}",
                zipPath);
+
+            await UpdatePackageCheck.EnsureSigned(_updateDownloader, serverUrl!, workDir, _logger,
+                (_isArm64 ? "Remotely-Linux-arm64.zip" : "Remotely-Linux.zip", zipPath), (scriptName, installerPath));
+
+            await File.WriteAllTextAsync(installerPath, UpdateManifest.FillBashInstaller(
+                await File.ReadAllTextAsync(installerPath), serverUrl!, connectionInfo.OrganizationID ?? ""));
 
             _logger.LogInformation("Launching installer to perform update.");
 

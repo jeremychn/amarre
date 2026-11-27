@@ -3,6 +3,9 @@
 #   Remotely-Win-x64.zip          (agent installe)
 #   Win-x64\Remotely_Desktop.exe  (client portable)
 # Resultat dans .\out\ : Remotely-Win-x64.zip et Win-x64\Remotely_Desktop.exe signes.
+# -ClePublique <cle.pub> : cle publique de l'instance (New-UpdateKey.ps1), ajoutee au zip en cles-maj.pub.
+# Les agents acceptent alors le Manifest.txt signe ensuite avec la cle privee de l'instance (amarre-maj.cs signer).
+param([string]$ClePublique)
 
 $ErrorActionPreference = 'Stop'
 $cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Sort-Object NotAfter | Select-Object -Last 1
@@ -25,6 +28,7 @@ New-Item .\out\Win-x64 -ItemType Directory | Out-Null
 # Agent installe : dezipper, signer, rezipper
 [IO.Compression.ZipFile]::ExtractToDirectory("$PWD\Remotely-Win-x64.zip", "$PWD\agent")
 Sign (Get-ChildItem .\agent -Recurse -Include *.exe, *.dll).FullName
+if ($ClePublique) { Copy-Item $ClePublique .\agent\cles-maj.pub }
 [IO.Compression.ZipFile]::CreateFromDirectory("$PWD\agent", "$PWD\out\Remotely-Win-x64.zip")
 Remove-Item .\agent -Recurse -Force
 

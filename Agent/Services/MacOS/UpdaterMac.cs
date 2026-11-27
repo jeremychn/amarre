@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Remotely.Agent.Interfaces;
+using Remotely.Shared.Helpers;
 using Remotely.Shared.Utilities;
 using System;
 using System.Diagnostics;
@@ -140,13 +141,19 @@ public class UpdaterMac : IUpdater
 
             var installerPath = Path.Combine(workDir, "RemotelyUpdate.sh");
 
-            await _updateDownloader.DownloadFile(
-                   $"{serverUrl}/API/ClientDownloads/MacOSInstaller-{_achitecture}/{connectionInfo.OrganizationID}",
-                   installerPath);
+            // Script brut (celui du manifeste), rempli ici après vérification.
+            var scriptName = $"Install-MacOS-{_achitecture}.sh";
+            await _updateDownloader.DownloadFile($"{serverUrl}/Content/{scriptName}", installerPath);
 
             await _updateDownloader.DownloadFile(
                $"{serverUrl}/API/AgentUpdate/DownloadPackage/macos-{_achitecture}",
                zipPath);
+
+            await UpdatePackageCheck.EnsureSigned(_updateDownloader, serverUrl!, workDir, _logger,
+                ($"Remotely-MacOS-{_achitecture}.zip", zipPath), (scriptName, installerPath));
+
+            await File.WriteAllTextAsync(installerPath, UpdateManifest.FillBashInstaller(
+                await File.ReadAllTextAsync(installerPath), serverUrl!, connectionInfo.OrganizationID ?? ""));
 
             _logger.LogInformation("Launching installer to perform update.");
 

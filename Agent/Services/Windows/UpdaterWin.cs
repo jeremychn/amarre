@@ -147,6 +147,9 @@ public class UpdaterWin : IUpdater
                $"{serverUrl}/api/AgentUpdate/DownloadPackage/win-{platform}",
                zipPath);
 
+            await UpdatePackageCheck.EnsureSigned(_updateDownloader, serverUrl!, workDir, _logger,
+                ($"Remotely-Win-{platform}.zip", zipPath), ("Install-Remotely.ps1", installerPath));
+
             _logger.LogInformation("Launching installer to perform update.");
 
             var startInfo = new ProcessStartInfo("powershell.exe");

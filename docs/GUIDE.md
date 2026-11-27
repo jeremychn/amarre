@@ -38,6 +38,7 @@ Ce guide couvre tout le cycle : installation du serveur, déploiement des agents
   - « Tous » ne peut pas être supprimé (il est marqué « par défaut » dans la liste des groupes).
   - À la mise à jour, la migration fait de même pour l'existant : un groupe déjà nommé « Tous » devient le groupe par défaut, sinon il est créé ; les postes sans groupe et les utilisateurs non admins y sont ajoutés.
 - Agents Linux ARM64 (Raspberry Pi…) en plus de Windows, Linux x64 et macOS.
+- **Mises à jour d'agent signées** (agents 1.28 et plus) : l'agent n'installe un paquet et son script que s'ils figurent, avec la bonne empreinte SHA-256, dans un manifeste signé par une clé qui n'est pas sur le serveur. Un serveur ou un volume `content` compromis ne peut pas pousser d'agent piégé par la mise à jour automatique ([§5.5](#55-signature-des-mises-à-jour)).
 - **Durée de fonctionnement** sur chaque carte de l'accueil (« Allumé depuis », orange à 7 jours, rouge à 30), compteur et filtre « Allumé ≥ 7 j », tri par dernier démarrage. Même valeur que le gestionnaire des tâches : un arrêt avec le démarrage rapide de Windows ne la remet pas à zéro, seul un redémarrage le fait. Agents 1.27 et plus.
 - **Explorateur de fichiers du poste** : onglet **Fichiers** de la page du poste (ou **Fichiers du poste** dans les actions de la carte). Parcourir les dossiers, télécharger un fichier (100 Mo au plus), envoyer des fichiers dans le dossier ouvert (un nom déjà pris devient « nom (2) »). Tout passe par l'agent, rien ne s'affiche sur le poste ; chaque téléchargement et envoi est noté dans le journal du serveur. Agents 1.27 et plus.
 - **Bibliothèque de scripts** : onglet **Scripts enregistrés**, bouton **Ajouter la bibliothèque Amarre** (administrateurs). Ajoute des scripts prêts à l'emploi dans le dossier public « Bibliothèque Amarre » (durée de fonctionnement et redémarrage en attente, redémarrage dans 10 minutes avec message et annulation, nettoyage des fichiers temporaires de plus de 7 jours, réparation de Windows Update, espace disque, logiciels installés, BitLocker, administrateurs locaux, gpupdate, cache DNS, et deux scripts Linux). Un script déjà présent n'est pas écrasé : un nouveau clic n'ajoute que les manquants.
@@ -194,8 +195,9 @@ Version des agents = celle de la release qui les recompile (`X.Y`, comme le serv
 | `Linux-x64/Remotely_Desktop` | Client Linux portable |
 | `Install-*.ps1`, `Install-*.sh` | Installeurs (le serveur y injecte son URL et l'organisation) |
 | `AgentVersion.txt` | Version des agents servis, lue par le serveur pour le témoin « agent obsolète » |
+| `Manifest.txt` | SHA-256 de chaque fichier ci-dessus, signé par la clé du projet : les agents le vérifient avant toute mise à jour ([§5.5](#55-signature-des-mises-à-jour)) |
 
-Agents **non signés**. macOS non testé (un Mac arm64 peut refuser un binaire non signé).
+Agents **sans signature Authenticode** (Windows affiche « éditeur inconnu ») ; seul le manifeste est signé. macOS non testé (un Mac arm64 peut refuser un binaire non signé).
 
 ### 5.2 Déployer sur le serveur
 
@@ -230,7 +232,7 @@ GARDER_WIN64=1 ./Utilities/maj-agents.sh   # tout sauf les agents Windows x64
 DEST=/autre/content ./Utilities/maj-agents.sh   # autre dossier
 ```
 
-Sans argument : la dernière release qui contient `Content.zip`. **`GARDER_WIN64=1`** évite de changer `Remotely-Win-x64.zip`, donc de déclencher la mise à jour de tous les postes Windows quand seules les autres plateformes changent.
+Sans argument : la dernière release qui contient `Content.zip`. **`GARDER_WIN64=1`** évite de changer `Remotely-Win-x64.zip`, donc de déclencher la mise à jour de tous les postes Windows quand seules les autres plateformes changent. Le nouveau `Manifest.txt` ne correspond alors plus à l'ancien zip Windows : un agent Windows 1.28 ou plus qu'on force à se mettre à jour (**Mettre à jour l'agent**) refuse, et c'est voulu. Il se mettra à jour avec la prochaine release complète.
 
 ### 5.3 Build local (sans GitHub)
 
@@ -280,7 +282,22 @@ Une instance qui sert ses propres agents signés ne passe **pas** par `maj-agent
 
    `Sign-Remotely.ps1` fait la signature seul : il prend le certificat de signature de code le plus récent, décompresse `Remotely-Win-x64.zip`, signe les exe/dll qui ne le sont pas (le runtime .NET l'est déjà), recompresse le zip, signe `Win-x64\Remotely_Desktop.exe` et horodate le tout. Il s'arrête si une signature échoue.
 
-   Restent non signés, c'est voulu : `Install-Remotely.ps1` (le serveur le modifie au téléchargement) et les agents x86, Linux et macOS.
+   Restent sans Authenticode, c'est voulu : `Install-Remotely.ps1` (le serveur le modifie au téléchargement) et les agents x86, Linux et macOS.
+
+   **Agents 1.28 et plus : signer aussi le manifeste.** Le zip re-signé n'a plus l'empreinte du `Manifest.txt` de la release : sans nouveau manifeste, les postes refusent la mise à jour. L'instance a sa propre clé ([§5.5](#55-signature-des-mises-à-jour), créée une fois), et sa clé publique part dans le zip pour que les agents l'acceptent. Lancer donc `Sign-Remotely.ps1` avec la clé publique :
+
+   ```powershell
+   powershell -File <dépôt>\Utilities\Sign-Remotely.ps1 -ClePublique <chemin>\amarre-maj-apei.pub
+   ```
+
+   puis, une fois les `Move-Item` faits, **en dernier** (rien ne doit plus toucher au dossier ensuite) :
+
+   ```powershell
+   cd <dépôt>
+   dotnet run Utilities/amarre-maj.cs -- signer <chemin>\content <chemin>\amarre-maj-apei.pem
+   ```
+
+   L'outil demande le mot de passe de la clé et affiche le manifeste écrit. Il faut le SDK .NET 10 sur le poste.
 
 3. **Déposer** sur le serveur. Depuis le poste :
 
@@ -298,7 +315,48 @@ Une instance qui sert ses propres agents signés ne passe **pas** par `maj-agent
 
 4. **Vérifier** : les postes se mettent à jour seuls dans les 6 h ([§8](#8-mettre-à-jour-les-agents)). Pour contrôler tout de suite, forcer un poste (**Mettre à jour l'agent**) : il revient sur la nouvelle version, sans alerte SmartScreen, et Propriétés → **Signatures numériques** de l'exécutable affiche le certificat.
 
-Retour arrière : remettre `content.bak-<date>`.
+Retour arrière : remettre `content.bak-<date>`. Les agents 1.28 et plus refusent une version plus ancienne que la leur ([§9](#9-retour-arrière)).
+
+### 5.5 Signature des mises à jour
+
+Depuis la 1.28, avant de lancer un installeur, l'agent télécharge `Content/Manifest.txt` et vérifie :
+
+1. la signature (ECDSA P-256) : une des **clés publiques compilées dans l'agent** (`Shared/Helpers/UpdateManifest.cs`), ou une clé de `cles-maj.pub` dans son dossier d'installation (clé d'une instance qui re-signe, livrée par un paquet déjà vérifié) ;
+2. l'empreinte SHA-256 du zip **et** du script d'installation téléchargés : le script tourne en SYSTEM ou en root, il compte autant que le zip ;
+3. la version du manifeste, qui doit être **au moins celle de l'agent** : un ancien paquet signé, qui a une faille connue, ne remplace pas un agent récent.
+
+Si un seul point échoue, l'agent ne lance rien, note « Mise à jour refusée : <motif> » dans son journal et réessaie 24 h plus tard. Manifeste absent = refus. Linux et macOS : l'agent prend le script brut (`/Content/Install-*.sh`, celui du manifeste) et y écrit lui-même l'URL du serveur et l'organisation, comme le faisait le serveur.
+
+**Ce que ça couvre, et pas** : le volume `content` modifié, un serveur compromis qui veut installer un agent piégé (qui resterait en place), une interception réseau. Un serveur compromis *en direct* garde par contre les fonctions normales d'Amarre (scripts, terminal, prise en main) sur les postes connectés : la signature ne remplace pas la protection du serveur.
+
+**Clés du projet** (deux clés publiques compilées dans l'agent) :
+
+| Clé | Où est la clé privée | Rôle |
+|---|---|---|
+| principale | secret GitHub `AMARRE_UPDATE_KEY` (PEM) + KeePass | signe `Manifest.txt` à chaque release (`release.yml`) |
+| secours | KeePass seulement, hors ligne | remplace la principale si elle est perdue ou volée |
+
+Sans le secret, la release échoue au lieu de publier des agents sans manifeste. Le poser une fois, depuis le dossier qui contient la clé :
+
+```powershell
+gh secret set AMARRE_UPDATE_KEY --repo jeremychn/amarre --body (Get-Content .\amarre-maj-principale.pem -Raw)
+```
+
+Créer une clé (SDK .NET 10, depuis la racine du dépôt). Le `.pem` est **secret** : KeePass, jamais dans le dépôt ; le `.pub` est public :
+
+```powershell
+dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-apei                             # chiffrée, mot de passe demandé
+dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-principale --sans-mot-de-passe   # pour un secret GitHub
+```
+
+**Instance qui re-signe ses agents** (APEI, [§5.4](#54-instance-aux-agents-signés)) : elle a sa propre clé, créée une fois et chiffrée par mot de passe (`amarre-maj-apei.pem` dans le KeePass de l'APEI). Si elle est perdue : déposer le `Content.zip` de la release tel quel (signé par la clé du projet, toujours acceptée), puis créer une nouvelle clé et reprendre §5.4. Les postes perdent juste l'Authenticode le temps d'une release.
+
+**Clé perdue ou volée** :
+- **principale perdue** : signer avec la secours (`signer <dossier> amarre-maj-secours.pem`, ou mettre la secours dans le secret le temps d'une release). Dans la release suivante, une nouvelle paire remplace l'ancienne dans `UpdateManifest.cs`.
+- **principale volée** : pareil, au plus vite. Les agents pas encore à jour lui font confiance jusqu'à leur mise à jour.
+- **les deux perdues** : plus aucune mise à jour automatique. Poser sur chaque poste le fichier vide `AutoriserMajNonSignee` dans le dossier de l'agent (GPO, `Invoke-Command`, ou à la main), puis forcer la mise à jour : elle passe une fois sans vérification et l'agent efface le fichier. Ou réinstaller l'agent (GPO, `Install-Remotely.ps1`).
+
+**Transition** : les agents 1.27 et moins ne vérifient rien. Ils installent la 1.28 comme avant, sans contrôle ; c'est la 1.28 qui vérifie les mises à jour suivantes. Pour un poste 1.28 ou plus, la seule exception est le fichier `AutoriserMajNonSignee` : il ne peut être posé que par un administrateur du poste, ne sert qu'une fois, et l'agent le note dans son journal.
 
 ## 6. Installer l'agent sur un poste client
 
@@ -410,7 +468,7 @@ Ordre : serveur d'abord, agents ensuite (le serveur accepte les agents plus anci
 
 - **Serveur** : rebasculer le conteneur sur l'image précédente (Duplicate/Edit ou tag dans le compose). Données, clés et agents sont sur l'hôte : rien d'autre à faire. Avec la méthode A, toutes les versions restent sur ghcr.io : `docker pull ghcr.io/jeremychn/amarre:<ancienne version>` si elle n'est plus sur le serveur.
 - **Base de données** : les migrations ne sont pas annulées par une image plus ancienne. Après la migration du groupe par défaut, une image précédente ignore la colonne `IsDefault` : « Tous » reste un groupe ordinaire avec ses postes et ses membres (il redevient supprimable).
-- **Agents** : remettre la sauvegarde `content.bak-<date>` créée par `maj-agents.sh` (ou `./Utilities/maj-agents.sh <ancien tag>`) ; les postes se réinstallent avec.
+- **Agents** : remettre la sauvegarde `content.bak-<date>` créée par `maj-agents.sh` (ou `./Utilities/maj-agents.sh <ancien tag>`) ; les postes se réinstallent avec, sauf les agents 1.28 et plus, qui refusent une version plus ancienne que la leur ([§5.5](#55-signature-des-mises-à-jour)). Pour eux, corriger et publier une version plus récente, ou poser `AutoriserMajNonSignee` sur les postes concernés.
 
 ## 10. Modifier le code
 
