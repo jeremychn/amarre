@@ -22,3 +22,9 @@
 .form-floating > label {
     color: #375a7f;
 }
+
+/* Darkly garde la couleur d'accent du thème clair (noir) : texte des tableaux illisible (Fichiers, Historique des scripts…). */
+:root {
+    --bs-emphasis-color: #fff;
+    --bs-emphasis-color-rgb: 255, 255, 255;
+}
