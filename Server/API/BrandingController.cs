@@ -30,7 +30,7 @@ public class BrandingController : ControllerBase
         {
             return NotFound();
         }
-        return result.Value;
+        return Public(result.Value);
     }
 
     [HttpGet]
@@ -47,12 +47,20 @@ public class BrandingController : ControllerBase
         var brandingResult = await _dataService.GetBrandingInfo(orgResult.Value.ID);
         _logger.LogResult(brandingResult);
 
-        if (!orgResult.IsSuccess || 
+        if (!orgResult.IsSuccess ||
             brandingResult.Value is null)
         {
             return new();
         }
 
-        return brandingResult.Value;
+        return Public(brandingResult.Value);
     }
+
+    // Endpoints anonymes : ne renvoyer que le logo et le nom du produit. L'ID d'organisation est le secret
+    // d'enrôlement (le client l'a déjà par ailleurs) ; GetDefault le divulguerait à tout anonyme.
+    private static BrandingInfo Public(BrandingInfo branding) => new()
+    {
+        Icon = branding.Icon,
+        Product = branding.Product
+    };
 }

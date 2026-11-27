@@ -230,12 +230,15 @@ public partial class DeviceDetails : AuthComponentBase
             var error = string.Join("\r\n", result.ErrorOutput ?? Array.Empty<string>());
             var textareaStyle = "width: 100%; height: 200px; white-space: pre;";
 
+            // Entrée et sortie viennent du poste : encodage HTML obligatoire, sinon </textarea><script> sort de la zone.
+            static string E(string? value) => System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
+
             builder.AddMarkupContent(0, "<h5>Entrée</h5>");
-            builder.AddMarkupContent(1, $"<textarea readonly style=\"{textareaStyle}\">{result.ScriptInput}</textarea>");
+            builder.AddMarkupContent(1, $"<textarea readonly style=\"{textareaStyle}\">{E(result.ScriptInput)}</textarea>");
             builder.AddMarkupContent(2, "<h5 class=\"mt-3\">Sortie standard</h5>");
-            builder.AddMarkupContent(3, $"<textarea readonly style=\"{textareaStyle}\">{output}</textarea>");
+            builder.AddMarkupContent(3, $"<textarea readonly style=\"{textareaStyle}\">{E(output)}</textarea>");
             builder.AddMarkupContent(4, "<h5 class=\"mt-3\">Sortie d'erreur</h5>");
-            builder.AddMarkupContent(3, $"<textarea readonly style=\"{textareaStyle}\">{error}</textarea>");
+            builder.AddMarkupContent(5, $"<textarea readonly style=\"{textareaStyle}\">{E(error)}</textarea>");
         }
 
         ModalService.ShowModal("Entrée et sortie du script", outputModal);
