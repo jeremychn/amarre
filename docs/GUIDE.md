@@ -268,36 +268,27 @@ scp .\Server\wwwroot\Content\AgentVersion.txt root@<serveur>:/srv/remotely/conte
 Une instance qui sert ses propres agents signés ne passe **pas** par `maj-agents.sh` : il remplacerait les agents signés par ceux, non signés, de la release. À chaque release qui contient `Content.zip` :
 
 1. **Serveur d'abord** ([§7](#7-mettre-à-jour-le-serveur)).
-2. **Signer**, sur le poste Windows qui a le certificat de signature de code (magasin de l'utilisateur, `Cert:\CurrentUser\My`). Télécharger `Content.zip` depuis la page de la release, puis, dans le même dossier :
-
-   ```powershell
-   Expand-Archive .\Content.zip -DestinationPath .\content
-   cd .\content
-   powershell -File <dépôt>\Utilities\Sign-Remotely.ps1
-   Move-Item .\out\Remotely-Win-x64.zip . -Force
-   Move-Item .\out\Win-x64\Remotely_Desktop.exe .\Win-x64\ -Force
-   Remove-Item .\out -Recurse
-   cd ..
-   ```
-
-   `Sign-Remotely.ps1` fait la signature seul : il prend le certificat de signature de code le plus récent, décompresse `Remotely-Win-x64.zip`, signe les exe/dll qui ne le sont pas (le runtime .NET l'est déjà), recompresse le zip, signe `Win-x64\Remotely_Desktop.exe` et horodate le tout. Il s'arrête si une signature échoue.
-
-   Restent sans Authenticode, c'est voulu : `Install-Remotely.ps1` (le serveur le modifie au téléchargement) et les agents x86, Linux et macOS.
-
-   **Agents 1.28 et plus : signer aussi le manifeste.** Le zip re-signé n'a plus l'empreinte du `Manifest.txt` de la release : sans nouveau manifeste, les postes refusent la mise à jour. L'instance a sa propre clé ([§5.5](#55-signature-des-mises-à-jour), créée une fois), et sa clé publique part dans le zip pour que les agents l'acceptent. Lancer donc `Sign-Remotely.ps1` avec la clé publique :
-
-   ```powershell
-   powershell -File <dépôt>\Utilities\Sign-Remotely.ps1 -ClePublique <chemin>\amarre-maj-instance.pub
-   ```
-
-   puis, une fois les `Move-Item` faits, **en dernier** (rien ne doit plus toucher au dossier ensuite) :
+2. **Signer**, sur le poste Windows qui a le certificat de signature de code (magasin de l'utilisateur, `Cert:\CurrentUser\My`), le SDK .NET 10 et une copie du dépôt. Une fois pour toutes, créer la clé de l'instance ([§5.5](#55-signature-des-mises-à-jour)) et la ranger dans le gestionnaire de mots de passe :
 
    ```powershell
    cd <dépôt>
-   dotnet run Utilities/amarre-maj.cs -- signer <chemin>\content <chemin>\amarre-maj-instance.pem
+   dotnet run Utilities/amarre-maj.cs -- cle <chemin>\amarre-maj-instance
    ```
 
-   L'outil demande le mot de passe de la clé et affiche le manifeste écrit. Il faut le SDK .NET 10 sur le poste.
+   Puis, à chaque release, télécharger `Content.zip` depuis la page de la release et, dans son dossier :
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File <dépôt>\Utilities\Sign-Remotely.ps1 -Content .\Content.zip -Cle <chemin>\amarre-maj-instance.pem
+   ```
+
+   Une seule commande, qui fait tout sur place dans `.\content` (décompressé à côté du zip) :
+   - signe en Authenticode, avec le certificat de signature de code le plus récent et horodatage, les exe/dll de `Remotely-Win-x64.zip` qui ne le sont pas (le runtime .NET l'est déjà) et `Win-x64\Remotely_Desktop.exe` ;
+   - ajoute au zip de l'agent la clé publique de l'instance (`cles-maj.pub`, lue à côté du `.pem`) : les postes acceptent ainsi le manifeste de l'instance pour les mises à jour suivantes ;
+   - écrit `Manifest.txt`, signé avec la clé de l'instance (mot de passe demandé). Le zip re-signé n'a plus l'empreinte du manifeste de la release : sans ce nouveau manifeste, les agents 1.28 et plus refuseraient la mise à jour.
+
+   Il s'arrête à la première erreur ; relancé sur le même dossier (`-Content .\content`), il ne re-signe que ce qui ne l'est pas. Le script n'est pas signé : `-ExecutionPolicy Bypass` le laisse passer sans changer la stratégie du poste.
+
+   Restent sans Authenticode, c'est voulu : `Install-Remotely.ps1` (le serveur le modifie au téléchargement) et les agents x86, Linux et macOS.
 
 3. **Déposer** sur le serveur. Depuis le poste :
 
@@ -349,7 +340,7 @@ dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-instance                   
 dotnet run Utilities/amarre-maj.cs -- cle amarre-maj-principale --sans-mot-de-passe   # pour un secret GitHub
 ```
 
-**Instance qui re-signe ses agents** ([§5.4](#54-instance-aux-agents-signés)) : elle a sa propre clé, créée une fois et chiffrée par mot de passe (`amarre-maj-instance.pem` dans le gestionnaire de mots de passe de l'instance). Si elle est perdue : déposer le `Content.zip` de la release tel quel (signé par la clé du projet, toujours acceptée), puis créer une nouvelle clé et reprendre §5.4. Les postes perdent juste l'Authenticode le temps d'une release.
+**Instance qui re-signe ses agents** ([§5.4](#54-instance-aux-agents-signés)) : elle a sa propre clé (pas celle du projet, qui protège aussi les autres instances), créée une fois et chiffrée par mot de passe (`amarre-maj-instance.pem` dans le gestionnaire de mots de passe de l'instance). Si elle est perdue : déposer le `Content.zip` de la release tel quel (signé par la clé du projet, toujours acceptée), puis créer une nouvelle clé et reprendre §5.4. Les postes perdent juste l'Authenticode le temps d'une release.
 
 **Clé perdue ou volée** :
 - **principale perdue** : signer avec la secours (`signer <dossier> amarre-maj-secours.pem`, ou mettre la secours dans le secret le temps d'une release). Dans la release suivante, une nouvelle paire remplace l'ancienne dans `UpdateManifest.cs`.
