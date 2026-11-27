@@ -17,6 +17,12 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Un seul run de release à la fois : deux pushes rapprochés sur main (ex. VERSION puis docs) ne
+# courent plus en parallèle. Le second, mis en file, revoit que le tag existe et ne republie pas.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 # Droits par job : lecture partout, écriture seulement là où l'on publie
 permissions:
   contents: read
@@ -155,15 +161,15 @@ jobs:
           if ($tag.StartsWith('v')) {
             $image = "Image serveur : ghcr.io/${{ github.repository_owner }}/amarre:$($tag.TrimStart('v'))"
           } else {
-            # Lancement manuel : pas d'image serveur. Si la release existe déjà (relance sur le
-            # même commit), on remplace juste Content.zip au lieu d'échouer.
+            # Lancement manuel : pas d'image serveur.
             $tag = "agents-$env:AGENT_VERSION"
             $image = "Pas d'image serveur (lancement manuel)."
-            gh release view $tag *> $null
-            if ($LASTEXITCODE -eq 0) {
-              gh release upload $tag dist\Content.zip --clobber
-              exit $LASTEXITCODE
-            }
+          }
+          # Release déjà publiée (run concurrent ou relance) : remplacer Content.zip au lieu d'échouer.
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            if ($env:BUILD -eq 'True') { gh release upload $tag dist\Content.zip --clobber }
+            exit 0
           }
           if ($env:BUILD -eq 'True') {
             gh release create $tag dist\Content.zip --target $env:GITHUB_SHA --title "$tag (agents $env:AGENT_VERSION)" --notes "Agents v$env:AGENT_VERSION (non signés) : Windows x64/x86, Linux x64/arm64, macOS x64/arm64. Décompresser Content.zip dans le volume content du serveur. $image"
