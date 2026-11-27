@@ -464,6 +464,7 @@ Base de données, chaînes de connexion et port : variables d'environnement du c
 | Paramètre | Effet |
 |---|---|
 | `Require2FA` | 2FA obligatoire |
+| `RequireEnrollmentSecret` | Un poste inconnu doit présenter le secret d'enrôlement de son organisation (page Déploiement) pour s'enrôler. Désactivé par défaut ; à activer après avoir recoupé installeurs et déploiements (voir [§6.1](#61-secret-denrôlement-facultatif-recommandé)). Les postes déjà enrôlés ne sont pas concernés |
 | `DataRetentionInDays` | Conservation des logs et données, 90 jours par défaut (-1 = illimité, déconseillé) |
 | `EnforceAttendedAccess` | L'utilisateur doit accepter chaque prise en main |
 | `RemoteControlNotifyUser` | Notification au début d'une session sans surveillance |

@@ -16,6 +16,19 @@ Un fork maintenu de [Remotely](https://github.com/immense/Remotely), en françai
 
 </div>
 
+> [!IMPORTANT]
+> **Mise à niveau vers la 1.27 — action requise si vous veniez d'une version antérieure.**
+> Le conteneur serveur tourne désormais en utilisateur **non-root** (UID 1654). Un dossier de données existant appartient à root : le serveur **ne démarrera pas** (« attempt to write a readonly database ») tant que vous n'aurez pas, une seule fois, sur l'hôte :
+> ```bash
+> docker compose down
+> sudo chown -R 1654:1654 /srv/remotely          # votre dossier de données
+> # puis retirer du compose la ligne de volume  …/keys:/root/.aspnet/DataProtection-Keys
+> docker compose up -d
+> ```
+> Détails et conservation des clés de session : **[guide §7](docs/GUIDE.md#7-mettre-à-jour-le-serveur)**.
+>
+> Nouveau aussi : un **secret d'enrôlement par organisation** (facultatif) empêche d'enrôler un poste avec le seul identifiant d'organisation — voir **[guide §6.1](docs/GUIDE.md)**.
+
 ---
 
 Amarre reprend Remotely là où il s'est arrêté (code de décembre 2024) : passage à .NET 10, failles corrigées, bugs de production réglés et fonctions qui manquaient au quotidien du support. Il tourne en production tous les jours sur plusieurs centaines de postes.
